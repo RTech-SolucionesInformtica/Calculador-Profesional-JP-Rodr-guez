@@ -1,7 +1,3 @@
-// ============================================
-// CONFIGURACIÓN TÉCNICA E INGENIERÍA ELÉCTRICA
-// ============================================
-
 const STORAGE_KEY = 'aea_proyectos_v1';
 
 const TENSIONES = {
@@ -10,7 +6,6 @@ const TENSIONES = {
   trifasico: 380 
 };
 
-// TABLA OPTIMIZADA: Valores comerciales estándar en Argentina (Sección vs Térmica Máxima)
 const CONDUCTORES_AEA = [
   { amperios: 10, mm2: 1.5, disyuntor: 10 },
   { amperios: 16, mm2: 1.5, disyuntor: 16 },
@@ -48,7 +43,6 @@ function calcularCorriente(potenciaKW, sistema, factorPotencia = 0.95) {
   return parseFloat(I.toFixed(2));
 }
 
-// BUSCADOR CORREGIDO: Encuentra el cable comercial correcto según la corriente
 function encontrarConductor(corriente) {
   for (let i = 0; i < CONDUCTORES_AEA.length; i++) {
     if (corriente <= CONDUCTORES_AEA[i].amperios) {
@@ -113,12 +107,12 @@ function renderResumenTablero() {
   
   resumen.innerHTML = `
     <div class="stats-grid">
-      <div class="stat"><span class="label">Sistema:</span><span class="value">\${proyectoActual.tipoSistema.toUpperCase()}</span></div>
-      <div class="stat"><span class="label">Potencia:</span><span class="value">\${proyectoActual.potenciaTotal} kW</span></div>
-      <div class="stat"><span class="label">Corriente I:</span><span class="value">\${corrientePrincipal} A</span></div>
-      <div class="stat"><span class="label">Cable:</span><span class="value">\${conductor.mm2} mm²</span></div>
-      <div class="stat"><span class="label">Térmica:</span><span class="value">\${conductor.disyuntor} A</span></div>
-      <div class="stat"><span class="label">Caída:</span><span class="value">\${caidaV}V (\${caidaPorcentaje}%)</span></div>
+      <div class="stat"><span class="label">Sistema:</span><span class="value">${proyectoActual.tipoSistema.toUpperCase()}</span></div>
+      <div class="stat"><span class="label">Potencia:</span><span class="value">${proyectoActual.potenciaTotal} kW</span></div>
+      <div class="stat"><span class="label">Corriente I:</span><span class="value">${corrientePrincipal} A</span></div>
+      <div class="stat"><span class="label">Cable:</span><span class="value">${conductor.mm2} mm²</span></div>
+      <div class="stat"><span class="label">Térmica:</span><span class="value">${conductor.disyuntor} A</span></div>
+      <div class="stat"><span class="label">Caída:</span><span class="value">${caidaV}V (${caidaPorcentaje}%)</span></div>
     </div>
   `;
 }
@@ -141,15 +135,13 @@ function agregarCircuito(event) {
     return;
   }
 
-  // 1. CONTROL DE POTENCIA MÁXIMA DEL TABLERO
   if (potenciaCircuito > proyectoActual.potenciaTotal) {
-    alert(`⚠️ Error: La potencia del circuito (\${potenciaCircuito} kW) supera la Potencia Total Contratada del sistema (\${proyectoActual.potenciaTotal} kW).`);
+    alert(`⚠️ Error: La potencia del circuito (${potenciaCircuito} kW) supera la Potencia Total Contratada (${proyectoActual.potenciaTotal} kW).`);
     return;
   }
   
   const corriente = calcularCorriente(potenciaCircuito, proyectoActual.tipoSistema, 0.95);
 
-  // 2. LÍMITES ESTRICTOS DE CORRIENTE REGLAMENTO AEA
   const limitesAEA = {
     'Iluminación': { corrienteMax: 16, cableMin: 1.5, msg: 'Iluminación de Uso General (IUG) - Máx: 16A' },
     'Tomacorriente': { corrienteMax: 20, cableMin: 2.5, msg: 'Tomacorrientes de Uso General (TUG) - Máx: 20A' },
@@ -164,13 +156,12 @@ function agregarCircuito(event) {
   const norma = limitesAEA[tipoCircuito];
 
   if (norma && corriente > norma.corrienteMax) {
-    alert(`❌ RECHAZADO POR NORMATIVA AEA:\nEl circuito de tipo [\${norma.msg}] calculó una demanda de \${corriente} A.\n\nRegla AEA: La corriente máxima asignable para este tipo de circuito es de \${norma.corrienteMax} A.`);
+    alert(`❌ RECHAZADO POR NORMATIVA AEA:\nEl circuito de tipo [${norma.msg}] calculó una demanda de ${corriente} A.\n\nRegla AEA: El máximo permitido es de ${norma.corrienteMax} A.`);
     return;
   }
 
   let conductor = encontrarConductor(corriente);
 
-  // 3. ASIGNACIÓN OBLIGATORIA DE SECCIÓN MÍNIMA REGLAMENTARIA
   if (norma && conductor.mm2 < norma.cableMin) {
     const condReglamentario = CONDUCTORES_AEA.find(c => corriente <= c.amperios && c.mm2 >= norma.cableMin);
     if (condReglamentario) {
@@ -288,6 +279,11 @@ function configurarSistema() {
     return;
   }
   
+  if (tipoSistema === 'monofasico' && potenciaTotal > 10) {
+    alert(`❌ ERROR CONCEPTUAL (NORMATIVA AEA):\nNo se permite suministro Monofásico para potencias mayores a 10 kW.\n\nSegún la AEA, para consumos superiores a 10 kW es OBLIGATORIO configurar un sistema Trifásico.`);
+    return;
+  }
+  
   proyectoActual.tipoSistema = tipoSistema;
   proyectoActual.potenciaTotal = potenciaTotal;
   proyectoActual.factorPotencia = factorPotencia;
@@ -314,7 +310,6 @@ function initApp() {
   document.getElementById('btnLimpiarForm')?.addEventListener('click', () => document.getElementById('circuitForm').reset());
   document.getElementById('btnExport')?.addEventListener('click', () => window.print());
   
-  // SOLUCIÓN AL BUCLE DE RECARGA AUTOMÁTICO
   document.getElementById('btnLimpiarTodo')?.addEventListener('click', () => {
     if (confirm('¿Eliminar todo el proyecto?')) {
       proyectoActual = { tipoSistema: '', potenciaTotal: 0, factorPotencia: 0.95, longitudPrincipal: 20, circuitos: [] };
@@ -322,12 +317,9 @@ function initApp() {
       
       const tbody = document.querySelector('#circuitsTable tbody');
       if (tbody) tbody.innerHTML = '';
-      
       const panel = document.getElementById('panelTablero');
       if (panel) panel.style.display = 'none';
-      
-      const form = document.getElementById('circuitForm');
-      if (form) form.reset();
+      document.getElementById('circuitForm')?.reset();
       
       location.href = location.pathname;
     }
@@ -341,9 +333,6 @@ function initApp() {
   });
 }
 
-// ============================================
-// EFECTOS MOUSE: ARCOS VOLTAICOS AMARILLOS
-// ============================================
 class ElectricMouse {
   constructor() {
     this.mouseX = 0;

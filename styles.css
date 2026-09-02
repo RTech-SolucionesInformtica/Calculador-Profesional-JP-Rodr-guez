@@ -83,7 +83,12 @@ html, body {
   min-height: calc(100vh - 200px);
 }
 
-@media (min-width: 1024px) { .app { grid-template-columns: 1fr 1.2fr 1.5fr; } }
+@media (min-width: 1024px) { 
+  .app { 
+    grid-template-columns: 1fr 1fr 1.4fr; 
+    align-items: start;
+  } 
+}
 @media (min-width: 768px) and (max-width: 1023px) {
   .app { grid-template-columns: 1fr 1.2fr; }
   .results-panel { grid-column: span 2; }
