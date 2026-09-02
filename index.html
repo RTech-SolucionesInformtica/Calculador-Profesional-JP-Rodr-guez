@@ -1,157 +1,148 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Calculador de Cableado Residencial AEA - Esc. José Martí</title>
-    <link rel="stylesheet" href="styles.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Calculador de Cableado Residencial AEA</title>
+  <link rel="stylesheet" href="styles.css">
 </head>
 <body>
 
-    <header class="site-header">
-        <div class="header-inner">
-            <div class="logo">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
-                </svg>
-            </div>
-            <div class="title-block">
-                <h1>Calculador de Cableado Residencial AEA</h1>
-                <p class="subtitle">Esc. José Martí</p>
-            </div>
+  <header class="site-header">
+    <div class="header-inner">
+      <div class="logo">
+        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M13 2L3 14H12L11 22L21 10H12L13 2Z" fill="#FFEA00" stroke="#FFC400" stroke-width="2" stroke-linejoin="round"/>
+        </svg>
+      </div>
+      <div class="title-block">
+        <h1>Calculador de Cableado Residencial AEA</h1>
+        <p class="subtitle">Esc. José Martí</p>
+      </div>
+    </div>
+  </header>
+
+  <main class="app">
+    <!-- COLUMNA 1: CONFIGURACIÓN -->
+    <section class="panel config-panel">
+      <h2>⚡ Configuración del Sistema</h2>
+      <div class="form-group">
+        <label for="tipoSistema">Tipo de Sistema Eléctrico</label>
+        <select id="tipoSistema">
+          <option value="">-- Seleccionar --</option>
+          <option value="monofasico">Monofásico (1φ - 220V)</option>
+          <option value="bifasico">Bifásico (2φ - 2x220V)</option>
+          <option value="trifasico">Trifásico (3φ - 3x380V)</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="potenciaTotal">Potencia Total Contratada (kW)</label>
+        <input type="number" id="potenciaTotal" step="0.1" placeholder="Ej: 5.5">
+      </div>
+      <div class="form-group">
+        <label for="factorPotencia">Factor de Potencia (cos φ)</label>
+        <input type="number" id="factorPotencia" step="0.01" value="0.95">
+      </div>
+      <div class="form-group">
+        <label for="longitudPrincipal">Longitud de acometida principal (m)</label>
+        <input type="number" id="longitudPrincipal" value="20">
+      </div>
+      <button id="btnConfigurar" class="btn btn-primary" style="width:100%;">✓ Configurar Sistema</button>
+
+      <div id="panelTablero" style="display:none; margin-top: 20px;">
+        <h3>📊 Tablero Principal</h3>
+        <div id="resumenTablero"></div>
+      </div>
+    </section>
+
+    <!-- COLUMNA 2: FORMULARIO CIRCUITOS -->
+    <section class="panel circuits-panel">
+      <h2>⚙ Agregar Circuitos</h2>
+      <form id="circuitForm">
+        <div class="form-group">
+          <label for="tipoCircuito">Tipo de Circuito</label>
+          <select id="tipoCircuito">
+            <option value="">-- Seleccionar --</option>
+            <option value="Iluminación">Iluminación</option>
+            <option value="Tomacorriente">Tomacorriente</option>
+            <option value="Cocina/Comedor">Cocina/Comedor</option>
+            <option value="Lavarropas">Lavarropas</option>
+            <option value="Aire Acondicionado">Aire Acondicionado</option>
+            <option value="Calefactor">Calefactor</option>
+            <option value="Calentador de agua">Calentador de agua</option>
+            <option value="Otro">Otro</option>
+          </select>
         </div>
-    </header>
-
-    <main class="app">
-        <!-- CONFIGURACIÓN DEL SISTEMA -->
-        <section class="config-panel panel">
-            <h2>⚡ Configuración del Sistema</h2>
-            <form id="systemForm" onsubmit="event.preventDefault();">
-                <div class="form-group">
-                    <label for="tipoSistema">Tipo de Sistema Eléctrico</label>
-                    <select id="tipoSistema" required>
-                        <option value="">-- Seleccionar --</option>
-                        <option value="monofasico">Monofásico (1φ - 220V)</option>
-                        <option value="bifasico">Bifásico (2φ - 2x220V)</option>
-                        <option value="trifasico">Trifásico (3φ - 3x380V)</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label for="potenciaTotal">Potencia Total Contratada (kW)</label>
-                    <input type="number" id="potenciaTotal" step="0.1" min="0.1" required>
-                </div>
-                <div class="form-group">
-                    <label for="factorPotencia">Factor de Potencia (cos φ)</label>
-                    <input type="number" id="factorPotencia" step="0.01" value="0.95" min="0.1" max="1" required>
-                </div>
-                <div class="form-group">
-                    <label for="longitudPrincipal">Longitud de acometida principal (m)</label>
-                    <input type="number" id="longitudPrincipal" value="20" min="1" required>
-                </div>
-                <button type="button" id="btnConfigurar" class="btn btn-primary">✓ Configurar Sistema</button>
-            </form>
-
-            <div id="panelTablero" class="resumen-box" style="display: none;">
-                <h3>📊 Tablero Principal</h3>
-                <div id="resumenTablero"></div>
-            </div>
-        </section>
-
-        <!-- AGREGAR CIRCUITOS -->
-        <section class="circuits-panel panel">
-            <h2>⚙ Agregar Circuitos</h2>
-            <form id="circuitForm">
-                <div class="form-group">
-                    <label for="tipoCircuito">Tipo de Circuito</label>
-                    <select id="tipoCircuito" required>
-                        <option value="">-- Seleccionar --</option>
-                        <option value="Iluminación">Iluminación</option>
-                        <option value="Tomacorriente">Tomacorriente</option>
-                        <option value="Cocina/Comedor">Cocina/Comedor</option>
-                        <option value="Lavarropas">Lavarropas</option>
-                        <option value="Aire Acondicionado">Aire Acondicionado</option>
-                        <option value="Calefactor">Calefactor</option>
-                        <option value="Calentador de agua">Calentador de agua</option>
-                        <option value="Otro">Otro</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label for="ambiente">Ambiente/Descripción</label>
-                    <input type="text" id="ambiente" placeholder="Ej: Cocina, Dormitorio" required>
-                </div>
-                <div class="form-group">
-                    <label for="potenciaCircuito">Potencia (kW)</label>
-                    <input type="number" id="potenciaCircuito" step="0.01" min="0.01" required>
-                </div>
-                <div class="form-group">
-                    <label for="longitud">Longitud del circuito (m)</label>
-                    <input type="number" id="longitud" min="1" required>
-                </div>
-                <div class="form-group">
-                    <label for="caida">Caída de tensión máxima permitida (%)</label>
-                    <select id="caida" required>
-                        <option value="3">3% (Ramales)</option>
-                        <option value="5">5% (Circuitos)</option>
-                        <option value="8">8% (Total)</option>
-                    </select>
-                </div>
-                <div class="actions-export">
-                    <button type="submit" class="btn btn-primary">+ Agregar</button>
-                    <button type="button" id="btnLimpiarForm" class="btn">Limpiar</button>
-                </div>
-            </form>
-        </section>
-
-        <!-- RESUMEN Y RESULTADOS -->
-        <section class="results-panel panel">
-            <h2>📊 Resumen de Circuitos</h2>
-            <div id="tableWrap">
-                <table id="circuitsTable">
-                    <thead>
-                        <tr>
-                            <th>Tipo</th>
-                            <th>Ambiente</th>
-                            <th>Potencia</th>
-                            <th>I (A)</th>
-                            <th>Cable</th>
-                            <th>Térmica</th>
-                            <th>Caída (V)</th>
-                            <th>Acción</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <!-- Inyección vía JavaScript -->
-                    </tbody>
-                </table>
-            </div>
-            
-            <div id="emptyState" class="empty-state">
-                No hay circuitos agregados. Agrega circuitos para ver el resumen.
-            </div>
-
-            <div id="resumenCircuitos" class="summary-box">
-                <p style="text-align:center; opacity:0.7">Agrega circuitos para ver el resumen</p>
-            </div>
-
-            <div class="actions-export">
-                <button id="btnExport" class="btn btn-primary">📄 Exportar Proyecto PDF</button>
-                <button id="btnLimpiarTodo" class="btn">🗑 Limpiar Todo</button>
-            </div>
-        </section>
-    </main>
-
-    <footer class="footer">
-        <div class="footer-content">
-            <small>© 2026 R-TECH | Calculador AEA | Autor: Juan Pablo Rodríguez</small>
-            <a href="https://wa.me/543813399196" class="whatsapp-btn" target="_blank" rel="noopener noreferrer">
-                <svg viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M12.012 2c-5.506 0-9.989 4.478-9.99 9.984a9.96 9.96 0 001.335 4.963L2 22l5.233-1.371a9.944 9.944 0 004.773 1.226h.004c5.507 0 9.99-4.478 9.991-9.984A9.997 9.997 0 0012.012 2zm5.748 14.123c-.237.662-1.388 1.258-1.919 1.311-.53.053-1.012.247-3.355-.678-2.822-1.112-4.603-3.974-4.744-4.161-.14-.187-1.135-1.504-1.135-2.871 0-1.367.716-2.037.97-2.31.253-.271.554-.34.739-.34h.53c.14 0 .327-.054.512.39.19.458.648 1.58.706 1.696.058.117.097.253.019.408-.078.155-.116.253-.233.39l-.35.408c-.117.135-.243.284-.102.527.14.243.626 1.03 1.343 1.671.921.82 1.698 1.073 1.94 1.196.242.122.383.102.525-.062.14-.165.603-.702.764-.941.16-.238.32-.2.535-.121.214.08 1.36.643 1.594.757.234.116.39.175.448.272.058.1.058.579-.18 1.241z"/>
-                </svg>
-                WhatsApp
-            </a>
+        <div class="form-group">
+          <label for="ambiente">Ambiente/Descripción</label>
+          <input type="text" id="ambiente" placeholder="Ej: Cocina, Dormitorio">
         </div>
-    </footer>
+        <div class="form-group">
+          <label for="potenciaCircuito">Potencia (kW)</label>
+          <input type="number" id="potenciaCircuito" step="0.01" placeholder="Ej: 1.5">
+        </div>
+        <div class="form-group">
+          <label for="longitud">Longitud del circuito (m)</label>
+          <input type="number" id="longitud" placeholder="Ej: 15">
+        </div>
+        <div class="form-group">
+          <label for="caida">Caída de tensión máxima permitida (%)</label>
+          <select id="caida">
+            <option value="3">3% (Ramales)</option>
+            <option value="5">5% (Circuitos)</option>
+            <option value="8">8% (Total)</option>
+          </select>
+        </div>
+        <div style="display:flex; gap:10px;">
+          <button type="submit" class="btn btn-primary" style="flex:2;">+ Agregar</button>
+          <button type="button" id="btnLimpiarForm" class="btn" style="flex:1;">Limpiar</button>
+        </div>
+      </form>
+    </section>
 
-    <script src="script.js"></script>
+    <!-- COLUMNA 3: TABLA Y RESUMEN TOTAL -->
+    <section class="panel results-panel">
+      <h2>📊 Resumen de Circuitos</h2>
+      <div id="tableWrap">
+        <table id="circuitsTable">
+          <thead>
+            <tr>
+              <th>Tipo</th>
+              <th>Ambiente</th>
+              <th>Potencia</th>
+              <th>I (A)</th>
+              <th>Cable</th>
+              <th>Térmica</th>
+              <th>Caída (V)</th>
+              <th>Acción</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      
+      <div id="emptyState" style="text-align:center; padding: 20px; opacity:0.6;">
+        No hay circuitos agregados. Agrega circuitos para ver el resumen.
+      </div>
+
+      <div id="resumenCircuitos" style="margin-top: 20px;">
+        <p style="text-align:center;opacity:0.7">Agrega circuitos para ver el resumen</p>
+      </div>
+
+      <div class="actions-export" style="display:flex; gap:10px; margin-top:20px;">
+        <button id="btnExport" class="btn" style="width:100%;">📄 Exportar Proyecto PDF</button>
+        <button id="btnLimpiarTodo" class="btn btn-delete" style="width:100%;">🗑 Limpiar Todo</button>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-content">
+      <span>© 2026 R-TECH | Calculador AEA | Desarrollador: Juan Pablo Rodríguez</span>
+      <a href="https://wa.me/tu_numero" class="whatsapp-btn" target="_blank">WhatsApp</a>
+    </div>
+  </footer>
+
+  <script src="script.js"></script>
 </body>
 </html>

@@ -10,19 +10,18 @@ const TENSIONES = {
   trifasico: 380 
 };
 
+// TABLA OPTIMIZADA: Valores comerciales estándar en Argentina (Sección vs Térmica Máxima)
 const CONDUCTORES_AEA = [
   { amperios: 10, mm2: 1.5, disyuntor: 10 },
-  { amperios: 15, mm2: 2.5, disyuntor: 15 },
+  { amperios: 16, mm2: 1.5, disyuntor: 16 },
   { amperios: 20, mm2: 2.5, disyuntor: 20 },
-  { amperios: 30, mm2: 4, disyuntor: 30 },
-  { amperios: 40, mm2: 6, disyuntor: 40 },
-  { amperios: 50, mm2: 10, disyuntor: 50 },
-  { amperios: 63, mm2: 10, disyuntor: 63 },
-  { amperios: 80, mm2: 16, disyuntor: 80 },
-  { amperios: 100, mm2: 25, disyuntor: 100 },
-  { amperios: 125, mm2: 35, disyuntor: 125 },
-  { amperios: 160, mm2: 50, disyuntor: 160 },
-  { amperios: 200, mm2: 70, disyuntor: 200 }
+  { amperios: 25, mm2: 4,   disyuntor: 25 },
+  { amperios: 32, mm2: 6,   disyuntor: 32 },
+  { amperios: 40, mm2: 10,  disyuntor: 40 },
+  { amperios: 50, mm2: 10,  disyuntor: 50 },
+  { amperios: 63, mm2: 16,  disyuntor: 63 },
+  { amperios: 80, mm2: 16,  disyuntor: 80 },
+  { amperios: 100, mm2: 25, disyuntor: 100 }
 ];
 
 const RHO_COBRE = 0.0175;
@@ -49,6 +48,7 @@ function calcularCorriente(potenciaKW, sistema, factorPotencia = 0.95) {
   return parseFloat(I.toFixed(2));
 }
 
+// BUSCADOR CORREGIDO: Encuentra el cable comercial correcto según la corriente
 function encontrarConductor(corriente) {
   for (let i = 0; i < CONDUCTORES_AEA.length; i++) {
     if (corriente <= CONDUCTORES_AEA[i].amperios) {
@@ -59,11 +59,11 @@ function encontrarConductor(corriente) {
       };
     }
   }
-  return { mm2: '>70', disyuntor: '>200', amperios: Infinity };
+  return { mm2: '>25', disyuntor: '>100', amperios: Infinity };
 }
 
 function calcularCaidaTension(corriente, longitud, mm2, sistema) {
-  if (mm2 === '>70' || !mm2) return 0;
+  if (mm2 === '>25' || !mm2 || isNaN(mm2)) return 0;
   let caida;
   if (sistema === 'trifasico') {
     caida = (Math.sqrt(3) * RHO_COBRE * longitud * corriente) / mm2;
@@ -113,12 +113,12 @@ function renderResumenTablero() {
   
   resumen.innerHTML = `
     <div class="stats-grid">
-      <div class="stat"><span class="label">Sistema:</span><span class="value">${proyectoActual.tipoSistema.toUpperCase()}</span></div>
-      <div class="stat"><span class="label">Potencia:</span><span class="value">${proyectoActual.potenciaTotal} kW</span></div>
-      <div class="stat"><span class="label">Corriente I:</span><span class="value">${corrientePrincipal} A</span></div>
-      <div class="stat"><span class="label">Cable:</span><span class="value">${conductor.mm2} mm²</span></div>
-      <div class="stat"><span class="label">Térmica:</span><span class="value">${conductor.disyuntor} A</span></div>
-      <div class="stat"><span class="label">Caída:</span><span class="value">${caidaV}V (${caidaPorcentaje}%)</span></div>
+      <div class="stat"><span class="label">Sistema:</span><span class="value">\${proyectoActual.tipoSistema.toUpperCase()}</span></div>
+      <div class="stat"><span class="label">Potencia:</span><span class="value">\${proyectoActual.potenciaTotal} kW</span></div>
+      <div class="stat"><span class="label">Corriente I:</span><span class="value">\${corrientePrincipal} A</span></div>
+      <div class="stat"><span class="label">Cable:</span><span class="value">\${conductor.mm2} mm²</span></div>
+      <div class="stat"><span class="label">Térmica:</span><span class="value">\${conductor.disyuntor} A</span></div>
+      <div class="stat"><span class="label">Caída:</span><span class="value">\${caidaV}V (\${caidaPorcentaje}%)</span></div>
     </div>
   `;
 }
@@ -140,9 +140,50 @@ function agregarCircuito(event) {
     alert('⚠️ Completa todos los campos');
     return;
   }
+
+  // 1. CONTROL DE POTENCIA MÁXIMA DEL TABLERO
+  if (potenciaCircuito > proyectoActual.potenciaTotal) {
+    alert(`⚠️ Error: La potencia del circuito (\${potenciaCircuito} kW) supera la Potencia Total Contratada del sistema (\${proyectoActual.potenciaTotal} kW).`);
+    return;
+  }
   
   const corriente = calcularCorriente(potenciaCircuito, proyectoActual.tipoSistema, 0.95);
-  const conductor = encontrarConductor(corriente);
+
+  // 2. LÍMITES ESTRICTOS DE CORRIENTE REGLAMENTO AEA
+  const limitesAEA = {
+    'Iluminación': { corrienteMax: 16, cableMin: 1.5, msg: 'Iluminación de Uso General (IUG) - Máx: 16A' },
+    'Tomacorriente': { corrienteMax: 20, cableMin: 2.5, msg: 'Tomacorrientes de Uso General (TUG) - Máx: 20A' },
+    'Cocina/Comedor': { corrienteMax: 20, cableMin: 2.5, msg: 'Circuitos de Cocina/Comedor - Máx: 20A' },
+    'Lavarropas': { corrienteMax: 20, cableMin: 2.5, msg: 'Lavarropas / Usos Especiales - Máx: 20A' },
+    'Aire Acondicionado': { corrienteMax: 32, cableMin: 2.5, msg: 'Alimentación de Aire Acondicionado (ACU) - Máx: 32A' },
+    'Calefactor': { corrienteMax: 32, cableMin: 2.5, msg: 'Carga Única Especial - Máx: 32A' },
+    'Calentador de agua': { corrienteMax: 32, cableMin: 2.5, msg: 'Termotanque/Calentador Eléctrico - Máx: 32A' },
+    'Otro': { corrienteMax: 63, cableMin: 1.5, msg: 'Otros Circuitos Especiales/Específicos' }
+  };
+
+  const norma = limitesAEA[tipoCircuito];
+
+  if (norma && corriente > norma.corrienteMax) {
+    alert(`❌ RECHAZADO POR NORMATIVA AEA:\nEl circuito de tipo [\${norma.msg}] calculó una demanda de \${corriente} A.\n\nRegla AEA: La corriente máxima asignable para este tipo de circuito es de \${norma.corrienteMax} A.`);
+    return;
+  }
+
+  let conductor = encontrarConductor(corriente);
+
+  // 3. ASIGNACIÓN OBLIGATORIA DE SECCIÓN MÍNIMA REGLAMENTARIA
+  if (norma && conductor.mm2 < norma.cableMin) {
+    const condReglamentario = CONDUCTORES_AEA.find(c => corriente <= c.amperios && c.mm2 >= norma.cableMin);
+    if (condReglamentario) {
+      conductor = {
+        mm2: condReglamentario.mm2,
+        disyuntor: condReglamentario.disyuntor,
+        amperios: condReglamentario.amperios
+      };
+    } else {
+      conductor.mm2 = norma.cableMin;
+    }
+  }
+
   const caidaV = calcularCaidaTension(corriente, longitud, conductor.mm2, proyectoActual.tipoSistema);
   const caidaPorcentaje = calcularPorcentajeCaida(caidaV, proyectoActual.tipoSistema);
   
@@ -164,6 +205,7 @@ function agregarCircuito(event) {
   proyectoActual.circuitos.push(circuito);
   guardarProyecto();
   renderTablaCircuitos();
+  
   crearExplosionEnClick(event.clientX, event.clientY);
   document.getElementById('circuitForm').reset();
 }
@@ -195,14 +237,14 @@ function renderTablaCircuitos() {
     const tr = document.createElement('tr');
     const estadoClass = circuito.valido ? 'valido' : 'invalido';
     tr.innerHTML = `
-      <td>${circuito.tipoCircuito}</td>
-      <td>${circuito.ambiente}</td>
-      <td>${circuito.potenciaCircuito}</td>
-      <td>${circuito.corriente}</td>
-      <td><strong>${circuito.conductor} mm²</strong></td>
-      <td>${circuito.disyuntor} A</td>
-      <td class="${estadoClass}">${circuito.caidaV}V (${circuito.caidaPorcentaje}%)</td>
-      <td><button data-id="${circuito.id}" class="btn-delete" title="Eliminar">🗑</button></td>
+      <td>\${circuito.tipoCircuito}</td>
+      <td>\${circuito.ambiente}</td>
+      <td>\${circuito.potenciaCircuito}</td>
+      <td>\${circuito.corriente}</td>
+      <td><strong>\${circuito.conductor} mm²</strong></td>
+      <td>\${circuito.disyuntor} A</td>
+      <td class="\${estadoClass}">\${circuito.caidaV}V (\${circuito.caidaPorcentaje}%)</td>
+      <td><button data-id="\${circuito.id}" class="btn-delete" title="Eliminar">🗑</button></td>
     `;
     tbody.appendChild(tr);
   });
@@ -218,16 +260,19 @@ function renderResumenTotal() {
   const circuitosValidos = proyectoActual.circuitos.filter(c => c.valido).length;
   const circuitosTotal = proyectoActual.circuitos.length;
   
-  const advertencia = circuitosValidos < circuitosTotal 
-    ? `⚠️ ${circuitosTotal - circuitosValidos} circuito(s) con caída excesiva` 
-    : '✓ Todos los circuitos cumplen normativa AEA';
+  let advertencia = '✓ Todos los circuitos cumplen normativa AEA';
+  if (circuitosValidos < circuitosTotal) {
+    advertencia = `⚠️ \${circuitosTotal - circuitosValidos} circuito(s) con caída excesiva o fuera de norma`;
+  } else if (totalPotencia > proyectoActual.potenciaTotal) {
+    advertencia = `⚠️ Alerta: ¡La suma de los circuitos supera la potencia total configurada!`;
+  }
   
   resumenBox.innerHTML = `
     <div class="stats-grid">
-      <div class="stat"><span class="label">Total Circuitos:</span><span class="value">${circuitosTotal}</span></div>
-      <div class="stat"><span class="label">Potencia total:</span><span class="value">${totalPotencia.toFixed(2)} kW</span></div>
-      <div class="stat"><span class="label">Corriente Total:</span><span class="value">${totalCorriente.toFixed(2)} A</span></div>
-      <div class="stat" style="grid-column: 1/-1;"><span class="label">${advertencia}</span></div>
+      <div class="stat"><span class="label">Total Circuitos:</span><span class="value">\${circuitosTotal}</span></div>
+      <div class="stat"><span class="label">Potencia total:</span><span class="value">\${totalPotencia.toFixed(2)} kW</span></div>
+      <div class="stat"><span class="label">Corriente Total:</span><span class="value">\${totalCorriente.toFixed(2)} A</span></div>
+      <div class="stat" style="grid-column: 1/-1;"><span class="label">\${advertencia}</span></div>
     </div>
   `;
 }
@@ -268,11 +313,23 @@ function initApp() {
   document.getElementById('circuitForm')?.addEventListener('submit', agregarCircuito);
   document.getElementById('btnLimpiarForm')?.addEventListener('click', () => document.getElementById('circuitForm').reset());
   document.getElementById('btnExport')?.addEventListener('click', () => window.print());
+  
+  // SOLUCIÓN AL BUCLE DE RECARGA AUTOMÁTICO
   document.getElementById('btnLimpiarTodo')?.addEventListener('click', () => {
     if (confirm('¿Eliminar todo el proyecto?')) {
       proyectoActual = { tipoSistema: '', potenciaTotal: 0, factorPotencia: 0.95, longitudPrincipal: 20, circuitos: [] };
       localStorage.removeItem(STORAGE_KEY);
-      location.reload();
+      
+      const tbody = document.querySelector('#circuitsTable tbody');
+      if (tbody) tbody.innerHTML = '';
+      
+      const panel = document.getElementById('panelTablero');
+      if (panel) panel.style.display = 'none';
+      
+      const form = document.getElementById('circuitForm');
+      if (form) form.reset();
+      
+      location.href = location.pathname;
     }
   });
   
@@ -330,7 +387,7 @@ class ElectricMouse {
     spark.style.setProperty('--ty', ty + 'px');
     const deg = (angulo * 180) / Math.PI;
     spark.style.setProperty('--rot', deg + 'deg');
-    spark.style.transform = `rotate(${deg}deg)`;
+    spark.style.transform = `rotate(\${deg}deg)`;
     
     document.body.appendChild(spark);
     setTimeout(() => spark.remove(), 400);
