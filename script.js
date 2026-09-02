@@ -2,16 +2,14 @@
 // CONFIGURACIÓN Y BASES DE DATOS (NORMA AEA)
 // ==========================================
 
-// Estado global de la aplicación (Mapeado con tu interfaz original)
 window.proyectoActual = {
-  sistema: "monofasico", // 'monofasico' o 'trifasico'
-  potenciaTotal: 0,
+  sistema: "monofasico",
+  potenciaTotal: 10,
   cosPhi: 0.95,
   longitudAcometida: 20,
   circuitos: []
 };
 
-// Tabla de ampacidad para cables de cobre en cañería embutida (AEA 90364-7-771)
 const TABLA_CABLES = [
   { seccion: 1.5, corrienteMaxMono: 15, corrienteMaxTri: 13, reactancia: 0.111, resistencia: 13.3 },
   { seccion: 2.5, corrienteMaxMono: 21, corrienteMaxTri: 18, reactancia: 0.102, resistencia: 7.98 },
@@ -22,7 +20,6 @@ const TABLA_CABLES = [
   { seccion: 25,  corrienteMaxMono: 88, corrienteMaxTri: 75, reactancia: 0.078, resistencia: 0.78 }
 ];
 
-// Valores comerciales estándar de interruptores termomagnéticos en Argentina
 const TERMICAS_COMERCIALES = [10, 16, 20, 25, 32, 40, 50, 63];
 
 // ==========================================
@@ -31,14 +28,13 @@ const TERMICAS_COMERCIALES = [10, 16, 20, 25, 32, 40, 50, 63];
 
 function calcularCircuitoAAgregar(datos) {
   const tipo = datos.tipoCircuito; 
-  const potencia = parseFloat(datos.potenciaCircuito); // kW
-  const longitud = parseFloat(datos.longitudCircuito); // m
-  const caidaMaxPermitida = parseFloat(datos.caidaPorcentajeMax); // %
+  const potencia = parseFloat(datos.potenciaCircuito);
+  const longitud = parseFloat(datos.longitudCircuito);
+  const caidaMaxPermitida = parseFloat(datos.caidaPorcentajeMax);
   
   const cosPhi = proyectoActual.cosPhi;
   const senPhi = Math.sin(Math.acos(cosPhi));
   
-  // 1. Cálculo de Corriente de Empleo (Ib) por fase
   let corriente = 0;
   let voltajeNominal = 220;
   
@@ -49,13 +45,11 @@ function calcularCircuitoAAgregar(datos) {
     corriente = (potencia * 1000) / (220 * cosPhi);
   }
 
-  // 2. Sección Mínima Obligatoria por Tipo de Circuito (Reglamento AEA)
   let seccionMinimaNorma = 1.5; 
   if (tipo !== "Iluminación") {
-    seccionMinimaNorma = 2.5; // Tomacorrientes y circuitos de fuerza motriz/especiales mínimo 2.5 mm²
+    seccionMinimaNorma = 2.5;
   }
 
-  // 3. Selección Dinámica de Conductor por Caída de Tensión e Intensidad
   let conductorSeleccionado = null;
   let caidaV = 0;
   let caidaPorcentaje = 0;
@@ -69,7 +63,6 @@ function calcularCircuitoAAgregar(datos) {
     const iz = (proyectoActual.sistema === "trifasico") ? cable.corrienteMaxTri : cable.corrienteMaxMono;
     if (iz < corriente) continue; 
 
-    // Fórmula reglamentaria de Caída de Tensión por impedancia ponderada
     const factorDistancia = (proyectoActual.sistema === "trifasico") ? Math.sqrt(3) : 2;
     caidaV = (factorDistancia * corriente * longitud * (cable.resistencia * cosPhi + cable.reactancia * senPhi)) / 1000;
     caidaPorcentaje = (caidaV / voltajeNominal) * 100;
@@ -77,9 +70,7 @@ function calcularCircuitoAAgregar(datos) {
     if (caidaPorcentaje <= caidaMaxPermitida) {
       conductorSeleccionado = cable;
       
-      // 4. Coordinación de Protecciones (In): Ib <= In <= Iz
       let termicaValida = TERMICAS_COMERCIALES.find(inNominal => inNominal >= corriente && inNominal <= iz);
-      
       if (!termicaValida) {
         termicaValida = TERMICAS_COMERCIALES.find(inNominal => inNominal >= corriente) || 10;
       }
@@ -88,7 +79,6 @@ function calcularCircuitoAAgregar(datos) {
     }
   }
 
-  // Resguardo técnico si excede las longitudes críticas de la tabla
   if (!conductorSeleccionado) {
     conductorSeleccionado = TABLA_CABLES[TABLA_CABLES.length - 1];
     disyuntorTermica = 63;
@@ -114,55 +104,75 @@ function calcularCircuitoAAgregar(datos) {
 }
 
 // ==========================================
-// CAPTURA INTERACTIVA DEL DOM E INICIALIZACIÓN
+// CAPTURA INTERACTIVA BLINDADA CON IDs DIRECTOS
 // ==========================================
 
 function initApp() {
-  const btnAgregar = document.querySelector('.panel form button, .btn-primary, button[type="submit"]') || document.querySelector('button');
-  
-  if (btnAgregar) {
-    btnAgregar.addEventListener('click', (e) => {
+  const formCircuito = document.getElementById('formCircuito');
+  const btnLimpiarCampos = document.getElementById('btnLimpiarCampos');
+  const btnLimpiarTodo = document.getElementById('btnLimpiarTodo');
+  const btnExportarPDF = document.getElementById('btnExportarPDF');
+
+  if (formCircuito) {
+    formCircuito.addEventListener('submit', (e) => {
       e.preventDefault();
       
-      // Selectores tolerantes a fallos (Mapea con el HTML de tu calculador)
-      const selectTipo = document.querySelector('select') || { value: "Tomacorriente" };
-      const inputAmbiente = document.querySelector('input[type="text"]') || { value: "General" };
-      const inputsNumber = document.querySelectorAll('input[type="number"]');
+      const selectSistema = document.getElementById('sistemaElectrico');
+      const inputPotenciaTotal = document.getElementById('potenciaTotal');
+      const inputLongitudAcometida = document.getElementById('longitudAcometida');
       
-      // Si usas inputs numéricos genéricos, los leemos por orden según tu interfaz
-      const potenciaVal = inputsNumber ? inputsNumber.value : "1.5";
-      const longitudVal = inputsNumber ? inputsNumber.value : "15";
-      const selectCaida = document.querySelectorAll('select') || { value: "5" };
-      
-      // Sincronizar Sistema del panel de arriba
-      const configInputs = document.querySelectorAll('.config-panel input, input');
-      if (configInputs) {
-        proyectoActual.potenciaTotal = parseFloat(configInputs.value) || 10;
+      const selectTipo = document.getElementById('tipoCircuito');
+      const inputAmbiente = document.getElementById('ambienteDescripcion');
+      const inputPotenciaCircuito = document.getElementById('potenciaCircuito');
+      const inputLongitudCircuito = document.getElementById('longitudCircuito');
+      const selectCaida = document.getElementById('caidaMaxPermitida');
+
+      if (!selectTipo.value) {
+        alert("Por favor seleccione un tipo de circuito válido.");
+        return;
       }
 
-      // Detectar si seleccionó Trifásico en el primer select de la app
-      const primerSelect = document.querySelector('select');
-      if (primerSelect && primerSelect.value.includes("Trifásico")) {
-        proyectoActual.sistema = "trifasico";
-      } else {
-        proyectoActual.sistema = "monofasico";
-      }
+      // Sincronizar Configuración Global
+      proyectoActual.sistema = selectSistema.value;
+      proyectoActual.potenciaTotal = parseFloat(inputPotenciaTotal.value) || 0;
+      proyectoActual.longitudAcometida = parseFloat(inputLongitudAcometida.value) || 0;
 
       const datosForm = {
         tipoCircuito: selectTipo.value,
-        ambiente: inputAmbiente.value,
-        potenciaCircuito: parseFloat(potenciaVal) || 1,
-        longitudCircuito: parseFloat(longitudVal) || 10,
+        ambiente: inputAmbiente.value.trim() || "General",
+        potenciaCircuito: parseFloat(inputPotenciaCircuito.value) || 0,
+        longitudCircuito: parseFloat(inputLongitudCircuito.value) || 0,
         caidaPorcentajeMax: parseFloat(selectCaida.value) || 5
       };
 
       const nuevoCircuito = calcularCircuitoAAgregar(datosForm);
       proyectoActual.circuitos.push(nuevoCircuito);
+      
       renderTablaCircuitos();
+      formCircuito.reset();
     });
   }
 
-  // Manejo de eliminación mediante delegación segura
+  if (btnLimpiarCampos && formCircuito) {
+    btnLimpiarCampos.addEventListener('click', () => formCircuito.reset());
+  }
+
+  if (btnLimpiarTodo) {
+    btnLimpiarTodo.addEventListener('click', () => {
+      if (confirm("¿Estás seguro de borrar todos los circuitos del proyecto?")) {
+        proyectoActual.circuitos = [];
+        renderTablaCircuitos();
+      }
+    });
+  }
+
+  if (btnExportarPDF) {
+    btnExportarPDF.addEventListener('click', () => {
+      window.print();
+    });
+  }
+
+  // Delegación de eventos para eliminar filas
   document.addEventListener('click', (e) => {
     if (e.target && (e.target.classList.contains('btn-delete') || e.target.innerText === '🗑')) {
       const idAEliminar = e.target.getAttribute('data-id');
@@ -174,19 +184,16 @@ function initApp() {
   });
 }
 
-// ==========================================
-// RENDERIZADO DE TABLAS Y ALERTAS SIMULTÁNEAS
-// ==========================================
-
 function renderTablaCircuitos() {
-  const tbody = document.querySelector('#circuitsTable tbody') || document.querySelector('table tbody');
+  const tbody = document.querySelector('#circuitsTable tbody');
   const emptyState = document.getElementById('emptyState');
-  const resumenBox = document.getElementById('resumenCircuitos');
   if (!tbody) return;
   
   tbody.innerHTML = '';
-  if (!window.proyectoActual || !proyectoActual.circuitos || proyectoActual.circuitos.length === 0) {
+  
+  if (proyectoActual.circuitos.length === 0) {
     if (emptyState) emptyState.style.display = 'block';
+    const resumenBox = document.getElementById('resumenCircuitos');
     if (resumenBox) resumenBox.innerHTML = '<p style="text-align:center;opacity:0.7">Agrega circuitos para ver el resumen</p>';
     return;
   }
@@ -197,23 +204,24 @@ function renderTablaCircuitos() {
     const tr = document.createElement('tr');
     const estadoClass = circuito.valido ? 'valido' : 'invalido';
     
-    tr.innerHTML = 
-      '<td>' + circuito.tipoCircuito + '</td>' +
-      '<td>' + circuito.ambiente + '</td>' +
-      '<td>' + circuito.potenciaCircuito + ' kW</td>' +
-      '<td>' + circuito.corriente + ' A</td>' +
-      '<td><strong>' + circuito.conductor + ' mm²</strong></td>' +
-      '<td>' + circuito.disyuntor + ' A</td>' +
-      '<td class="' + estadoClass + '">' + circuito.caidaV + 'V (' + circuito.caidaPorcentaje + '%)</td>' +
-      '<td><button data-id="' + circuito.id + '" class="btn-delete" title="Eliminar">🗑</button></td>';
-      
+    tr.innerHTML = `
+      <td>\${circuito.tipoCircuito}</td>
+      <td>\${circuito.ambiente}</td>
+      <td>\${circuito.potenciaCircuito} kW</td>
+      <td>\${circuito.corriente} A</td>
+      <td><strong>\${circuito.conductor} mm²</strong></td>
+      <td>\${circuito.disyuntor} A</td>
+      <td class="\${estadoClass}">\${circuito.caidaV}V (\${circuito.caidaPorcentaje}%)</td>
+      <td><button data-id="\${circuito.id}" class="btn-delete" title="Eliminar">🗑</button></td>
+    `;
     tbody.appendChild(tr);
   });
+  
   renderResumenTotal();
 }
 
 function renderResumenTotal() {
-  const resumenBox = document.getElementById('resumenCircuitos') || document.querySelector('.panel:last-of-type div');
+  const resumenBox = document.getElementById('resumenCircuitos');
   if (!resumenBox) return;
 
   const totalPotencia = proyectoActual.circuitos.reduce((sum, c) => sum + c.potenciaCircuito, 0);
@@ -223,27 +231,28 @@ function renderResumenTotal() {
   
   let advertencias = [];
   if (circuitosValidos < circuitosTotal) {
-    advertencias.push('⚠️ ' + (circuitosTotal - circuitosValidos) + ' circuito(s) con caída excesiva o fuera de norma AEA');
+    advertencias.push('⚠️ ' + (circuitosTotal - circuitosValidos) + ' circuito(s) fuera de norma AEA');
   } 
   if (totalPotencia > proyectoActual.potenciaTotal) {
-    advertencias.push('⚠️ Alerta: ¡La suma de los circuitos supera la potencia total contratada!');
+    advertencias.push('⚠️ La suma supera la potencia total contratada!');
   }
   
   let advertencia = advertencias.length > 0 
     ? advertencias.join(' | ') 
     : '✓ Todos los circuitos cumplen normativa AEA';
   
-  resumenBox.innerHTML = 
-    '<div class="stats-grid">' +
-      '<div class="stat"><span class="label">Total Circuitos:</span><span class="value">' + circuitosTotal + '</span></div>' +
-      '<div class="stat"><span class="label">Potencia total:</span><span class="value">' + totalPotencia.toFixed(2) + ' kW</span></div>' +
-      '<div class="stat"><span class="label">Corriente Total:</span><span class="value">' + totalCorriente.toFixed(2) + ' A</span></div>' +
-      '<div class="stat" style="grid-column: 1/-1;"><span class="label">' + advertencia + '</span></div>' +
-    '</div>';
+  resumenBox.innerHTML = `
+    <div class="stats-grid">
+      <div class="stat"><span class="label">Total Circuitos:</span><span class="value">\${circuitosTotal}</span></div>
+      <div class="stat"><span class="label">Potencia total:</span><span class="value">\${totalPotencia.toFixed(2)} kW</span></div>
+      <div class="stat"><span class="label">Corriente Total:</span><span class="value">\${totalCorriente.toFixed(2)} A</span></div>
+      <div class="stat" style="grid-column: 1/-1;"><span class="label">\${advertencia}</span></div>
+    </div>
+  `;
 }
 
 // ==========================================
-// EFECTOS VISUALES (INTERFAZ DE CHISPAS MANTENIDA)
+// EFECTOS VISUALES DE CHISPAS
 // ==========================================
 
 class ElectricMouse {
@@ -282,7 +291,7 @@ class ElectricMouse {
     const deg = (angulo * 180) / Math.PI;
     spark.style.setProperty('--rot', deg + 'deg');
     
-    spark.style.transform = `rotate(${deg}deg)`;
+    spark.style.transform = `rotate(\${deg}deg)`;
     
     document.body.appendChild(spark);
     setTimeout(() => spark.remove(), 400);

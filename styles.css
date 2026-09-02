@@ -88,6 +88,7 @@ html, body {
     grid-template-columns: 1fr 1fr 1.4fr; 
     align-items: start;
   } 
+  .results-panel { grid-column: span 1; }
 }
 @media (min-width: 768px) and (max-width: 1023px) {
   .app { grid-template-columns: 1fr 1.2fr; }
@@ -133,6 +134,13 @@ html, body {
   border: 1px solid rgba(255, 234, 0, 0.1);
   background: rgba(5, 8, 17, 0.8);
   color: var(--text-primary);
+  outline: none;
+  font-size: 14px;
+}
+
+.form-group input:focus, .form-group select:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 8px rgba(255, 234, 0, 0.2);
 }
 
 .btn {
@@ -145,12 +153,23 @@ html, body {
   font-size: 12px;
   font-weight: 700;
   text-transform: uppercase;
+  transition: all 0.2s ease;
+}
+
+.btn:hover {
+  background: rgba(255, 234, 0, 0.05);
+  border-color: var(--primary);
 }
 
 .btn-primary {
   background: linear-gradient(135deg, var(--primary), var(--primary-dark));
   color: var(--bg-darker);
   border: none;
+}
+
+.btn-primary:hover {
+  background: var(--primary);
+  box-shadow: 0 0 12px rgba(255, 234, 0, 0.4);
 }
 
 .btn-delete {
@@ -160,6 +179,11 @@ html, body {
   color: var(--danger);
   border-radius: 6px;
   cursor: pointer;
+}
+
+.btn-delete:hover {
+  background: rgba(255, 23, 68, 0.2);
+  border-color: var(--danger);
 }
 
 .spark {
@@ -185,25 +209,27 @@ html, body {
 
 #tableWrap { overflow-x: auto; border-radius: 10px; }
 table { width: 100%; border-collapse: collapse; }
-th { background: rgba(255, 234, 0, 0.05); color: var(--primary); padding: 12px; text-align: left; }
-td { padding: 12px; border-bottom: 1px dashed rgba(255, 234, 0, 0.1); }
+th { background: rgba(255, 234, 0, 0.05); color: var(--primary); padding: 12px; text-align: left; font-size: 12px; text-transform: uppercase; }
+td { padding: 12px; border-bottom: 1px dashed rgba(255, 234, 0, 0.1); font-size: 14px; }
 .valido { color: var(--success); }
 .invalido { color: var(--danger); }
 
 .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; }
 .stat { background: rgba(255, 234, 0, 0.03); border: 1px solid rgba(255, 234, 0, 0.1); padding: 12px; border-radius: 8px; text-align: center; }
-.stat .value { color: var(--primary); font-weight: 800; }
+.stat .label { display: block; font-size: 11px; color: var(--text-secondary); text-transform: uppercase; margin-bottom: 4px; }
+.stat .value { color: var(--primary); font-weight: 800; font-size: 16px; }
 
-.footer { border-top: 2px solid var(--primary); padding: 20px 24px; margin-top: 40px; }
-.footer-content { max-width: 1400px; margin: 0 auto; display: flex; align-items: center; justify-content: space-between; }
-.whatsapp-btn { display: flex; align-items: center; gap: 8px; padding: 8px 16px; border-radius: 8px; color: #25D366; text-decoration: none; border: 1px solid rgba(37, 211, 102, 0.3); font-weight: 700; }
+.footer { border-top: 2px solid var(--primary); padding: 20px 24px; margin-top: 40px; background: var(--bg-darker); }
+.footer-content { max-width: 1400px; margin: 0 auto; display: flex; align-items: center; justify-content: space-between; font-size: 13px; color: var(--text-secondary); }
+.whatsapp-btn { display: flex; align-items: center; gap: 8px; padding: 8px 16px; border-radius: 8px; color: #25D366; text-decoration: none; border: 1px solid rgba(37, 211, 102, 0.3); font-weight: 700; transition: all 0.2s ease; }
+.whatsapp-btn:hover { background: rgba(37, 211, 102, 0.1); border-color: #25D366; }
 
 @media screen and (max-width: 767px) {
   html, body { width: 100vw; overflow-x: hidden; }
   .app { margin: 12px auto; padding: 0 12px; }
   .header-inner { flex-direction: column; text-align: center; }
   .actions-export { flex-direction: column; }
-  .footer-content { flex-direction: column-reverse; gap: 16px; }
+  .footer-content { flex-direction: column-reverse; gap: 16px; text-align: center; }
 }
 
 @media print {
