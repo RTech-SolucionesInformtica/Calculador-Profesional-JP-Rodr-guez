@@ -173,8 +173,14 @@ html, body {
 }
 
 @keyframes sparkFade {
-  0% { opacity: 1; }
-  100% { opacity: 0; transform: rotate(var(--rot, 0deg)) translate(var(--tx, 0px), var(--ty, 0px)) scaleX(0.3); }
+  0% { 
+    opacity: 1; 
+    transform: rotate(0deg) translate(0px, 0px) scaleX(1);
+  }
+  100% { 
+    opacity: 0; 
+    transform: rotate(var(--rot, 0deg)) translate(var(--tx, 0px), var(--ty, 0px)) scaleX(0.3); 
+  }
 }
 
 #tableWrap { overflow-x: auto; border-radius: 10px; }
