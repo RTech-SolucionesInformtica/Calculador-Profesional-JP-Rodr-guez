@@ -1,8 +1,11 @@
+/* ============================================
+   VARIABLES Y ESTILOS GLOBALES
+   ============================================ */
 :root {
-  --primary: #FFEA00;
-  --primary-dark: #FFC400;
+  --primary: #FFEA00;         /* Amarillo Rayo Eléctrico */
+  --primary-dark: #FFC400;    /* Amarillo Metálico */
   --secondary: #FF6D00;
-  --bg-dark: #0a0f1d;
+  --bg-dark: #0a0f1d;         /* Azul noche profundo */
   --bg-darker: #050811;
   --panel-bg: rgba(13, 20, 38, 0.85);
   --text-primary: #F5F7FA;
@@ -12,7 +15,9 @@
   --danger: #FF1744;
 }
 
-* { box-sizing: border-box; }
+* {
+  box-sizing: border-box;
+}
 
 html, body {
   height: 100%;
@@ -26,9 +31,26 @@ html, body {
   overflow-x: hidden;
 }
 
+/* Fallback para navegadores que NO soportan backdrop-filter
+   (Android viejo, Firefox antiguo, navegadores embebidos, etc.):
+   usamos un fondo sólido en vez de transparente para que el texto
+   siga siendo legible sin el efecto de vidrio esmerilado. */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .site-header {
+    background: rgb(8, 12, 24);
+  }
+  .panel {
+    background: rgb(15, 22, 40);
+  }
+}
+
+/* ============================================
+   HEADER RESPONSIVO CON SUBTÍTULO
+   ============================================ */
 .site-header {
   border-bottom: 3px solid var(--primary);
   background: linear-gradient(90deg, rgba(5, 8, 17, 0.98), rgba(13, 20, 38, 0.95));
+  -webkit-backdrop-filter: blur(10px);
   backdrop-filter: blur(10px);
   position: sticky;
   top: 0;
@@ -45,6 +67,12 @@ html, body {
   padding: 16px 24px;
 }
 
+.logo {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+}
+
 .logo svg {
   width: 60px;
   height: 60px;
@@ -52,8 +80,15 @@ html, body {
   transition: transform 0.3s ease;
 }
 
-.logo:hover svg { transform: scale(1.08) rotate(-5deg); }
-.title-block { flex: 1; }
+.logo:hover svg {
+  transform: scale(1.08) rotate(-5deg);
+}
+
+.title-block {
+  flex: 1;
+  min-width: 0; /* permite que el título se achique/ajuste en pantallas angostas */
+}
+
 .title-block h1 {
   margin: 0;
   font-size: 24px;
@@ -71,37 +106,68 @@ html, body {
   font-weight: 600;
   letter-spacing: 1px;
   text-transform: uppercase;
+  opacity: 0.9;
 }
 
+/* ============================================
+   DISEÑO GRID ADAPTATIVO MODERNO
+   ============================================ */
 .app {
   max-width: 1400px;
   margin: 24px auto;
   display: grid;
-  grid-template-columns: 1fr;
+  grid-template-columns: 1fr; /* Móviles */
   gap: 20px;
   padding: 0 24px;
-  min-height: calc(100vh - 200px);
+  min-height: calc(100vh - 200px); /* fallback para navegadores sin soporte de dvh */
+  min-height: calc(100dvh - 200px); /* se ajusta a la barra de direcciones en móviles */
 }
 
-@media (min-width: 1024px) { 
-  .app { 
-    grid-template-columns: 1fr 1fr 1.4fr; 
-    align-items: start;
-  } 
-  .results-panel { grid-column: span 1; }
+/* Fallback para navegadores muy antiguos sin soporte de CSS Grid:
+   apilamos los paneles con Flexbox en vez de romper el layout. */
+@supports not (display: grid) {
+  .app {
+    display: flex;
+    flex-direction: column;
+  }
 }
+
+@media (min-width: 1024px) {
+  .app {
+    grid-template-columns: 1fr 1.2fr 1.5fr; /* Computadoras */
+  }
+}
+
 @media (min-width: 768px) and (max-width: 1023px) {
-  .app { grid-template-columns: 1fr 1.2fr; }
-  .results-panel { grid-column: span 2; }
+  .app {
+    grid-template-columns: 1fr 1.2fr; /* Tablets */
+  }
+  .results-panel {
+    grid-column: span 2;
+  }
 }
 
+.config-panel, .circuits-panel, .results-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0; /* clave: evita que el contenido interno (ej. la tabla ancha)
+                   fuerce el ancho de la columna del grid y se corte por el
+                   overflow-x:hidden del body */
+}
+
+/* ============================================
+   PANELES Y FORMULARIOS
+   ============================================ */
 .panel {
   background: var(--panel-bg);
   padding: 24px;
   border-radius: 14px;
   border: 1px solid var(--border-color);
+  -webkit-backdrop-filter: blur(10px);
   backdrop-filter: blur(10px);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4),
+              inset 0 1px 0 rgba(255, 234, 0, 0.1);
   transition: all 0.3s ease;
 }
 
@@ -113,11 +179,12 @@ html, body {
 .panel h2 {
   margin: 0 0 20px 0;
   font-size: 18px;
+  font-weight: 700;
   color: var(--primary);
   text-transform: uppercase;
+  letter-spacing: 1px;
 }
 
-.form-group { margin-bottom: 14px; }
 .form-group label {
   display: block;
   margin-bottom: 8px;
@@ -134,15 +201,18 @@ html, body {
   border: 1px solid rgba(255, 234, 0, 0.1);
   background: rgba(5, 8, 17, 0.8);
   color: var(--text-primary);
-  outline: none;
   font-size: 14px;
+  transition: all 0.3s ease;
 }
 
 .form-group input:focus, .form-group select:focus {
+  outline: none;
   border-color: var(--primary);
-  box-shadow: 0 0 8px rgba(255, 234, 0, 0.2);
+  box-shadow: 0 0 0 4px rgba(255, 234, 0, 0.2);
+  transform: translateY(-1px);
 }
 
+/* Botones con efectos */
 .btn {
   padding: 12px 20px;
   border-radius: 10px;
@@ -153,87 +223,454 @@ html, body {
   font-size: 12px;
   font-weight: 700;
   text-transform: uppercase;
-  transition: all 0.2s ease;
+  transition: all 0.3s ease;
 }
 
 .btn:hover {
-  background: rgba(255, 23, 68, 0.05);
+  background: rgba(255, 23, 68, 0.08);
   border-color: var(--primary);
+  box-shadow: 0 0 15px rgba(255, 234, 0, 0.2);
 }
 
 .btn-primary {
   background: linear-gradient(135deg, var(--primary), var(--primary-dark));
   color: var(--bg-darker);
   border: none;
+  font-weight: 800;
 }
 
 .btn-primary:hover {
-  background: var(--primary);
-  box-shadow: 0 0 12px rgba(255, 234, 0, 0.4);
+  box-shadow: 0 0 25px rgba(255, 234, 0, 0.4);
 }
 
 .btn-delete {
   padding: 6px 10px;
+  font-size: 12px;
   background: rgba(255, 23, 68, 0.1);
   border: 1px solid rgba(255, 23, 68, 0.3);
   color: var(--danger);
   border-radius: 6px;
   cursor: pointer;
+  transition: all 0.2s ease;
 }
 
 .btn-delete:hover {
-  background: rgba(255, 23, 68, 0.2);
+  background: rgba(255, 23, 68, 0.25);
   border-color: var(--danger);
 }
 
+/* ============================================
+   SISTEMA DE CORRECCIÓN DE EXPULSIÓN DE RAYOS
+   ============================================ */
 .spark {
   position: fixed;
   pointer-events: none;
   z-index: 9999;
   background: var(--primary);
   border-radius: 2px;
-  filter: drop-shadow(0 0 6px var(--primary));
+  filter: drop-shadow(0 0 6px var(--primary)) drop-shadow(0 0 12px var(--primary-dark));
   animation: sparkFade 0.4s cubic-bezier(0.1, 0.8, 0.3, 1) forwards;
 }
 
 @keyframes sparkFade {
-  0% { 
-    opacity: 1; 
-    transform: rotate(0deg) translate(0px, 0px) scaleX(1);
+  0% {
+    opacity: 1;
   }
-  100% { 
-    opacity: 0; 
-    transform: rotate(var(--rot, 0deg)) translate(var(--tx, 0px), var(--ty, 0px)) scaleX(0.3); 
+  100% {
+    opacity: 0;
+    transform: rotate(var(--rot, 0deg)) translate(var(--tx, 0px), var(--ty, 0px)) scaleX(0.3);
   }
 }
 
-#tableWrap { overflow-x: auto; border-radius: 10px; }
-table { width: 100%; border-collapse: collapse; }
-th { background: rgba(255, 234, 0, 0.05); color: var(--primary); padding: 12px; text-align: left; font-size: 12px; text-transform: uppercase; }
-td { padding: 12px; border-bottom: 1px dashed rgba(255, 234, 0, 0.1); font-size: 14px; }
-.valido { color: var(--success); }
-.invalido { color: var(--danger); }
+/* Contenedores de tablas */
+#tableWrap {
+  overflow-x: auto;
+  max-width: 100%;
+  border-radius: 10px;
+  border: 1px solid var(--border-color);
+  -webkit-overflow-scrolling: touch; /* Suavidad extra al hacer scroll en iOS */
+}
 
-.stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; }
-.stat { background: rgba(255, 234, 0, 0.03); border: 1px solid rgba(255, 234, 0, 0.1); padding: 12px; border-radius: 8px; text-align: center; }
-.stat .label { display: block; font-size: 11px; color: var(--text-secondary); text-transform: uppercase; margin-bottom: 4px; }
-.stat .value { color: var(--primary); font-weight: 800; font-size: 16px; }
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
 
-.footer { border-top: 2px solid var(--primary); padding: 20px 24px; margin-top: 40px; background: var(--bg-darker); }
-.footer-content { max-width: 1400px; margin: 0 auto; display: flex; align-items: center; justify-content: space-between; font-size: 13px; color: var(--text-secondary); }
-.whatsapp-btn { display: flex; align-items: center; gap: 8px; padding: 8px 16px; border-radius: 8px; color: #25D366; text-decoration: none; border: 1px solid rgba(37, 211, 102, 0.3); font-weight: 700; transition: all 0.2s ease; }
-.whatsapp-btn:hover { background: rgba(37, 211, 102, 0.1); border-color: #25D366; }
+th {
+  background: rgba(255, 234, 0, 0.05);
+  color: var(--primary);
+  padding: 12px;
+  text-align: left;
+  border-bottom: 2px solid var(--primary);
+}
 
+td {
+  padding: 12px;
+  border-bottom: 1px dashed rgba(255, 234, 0, 0.1);
+}
+
+.valido { color: var(--success); font-weight: bold; }
+.invalido { color: var(--danger); font-weight: bold; }
+
+.alerta-potencia {
+  color: var(--danger);
+  font-weight: bold;
+  text-align: center;
+}
+
+.nota-diferencial {
+  opacity: 0.85;
+  font-size: 0.9em;
+  text-align: center;
+  font-weight: normal;
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 10px;
+}
+
+.stat {
+  background: rgba(255, 234, 0, 0.03);
+  border: 1px solid rgba(255, 234, 0, 0.1);
+  padding: 12px;
+  border-radius: 8px;
+  text-align: center;
+}
+
+.stat .value {
+  color: var(--primary);
+  font-weight: 800;
+}
+
+/* ============================================
+   BOTÓN EXPORTACIONES Y RESUMEN
+   ============================================ */
+.resumen-box, .summary-box {
+  background: linear-gradient(135deg, rgba(255, 234, 0, 0.08), rgba(255, 196, 0, 0.04));
+  border: 1px solid rgba(255, 234, 0, 0.15);
+  border-radius: 10px;
+  padding: 20px;
+  margin-top: 16px;
+}
+
+.actions-export {
+  display: flex;
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 40px 20px;
+  color: var(--text-secondary);
+  font-size: 14px;
+  opacity: 0.7;
+}
+
+/* ============================================
+   FOOTER
+   ============================================ */
+.footer {
+  background: linear-gradient(180deg, rgba(5, 8, 17, 0.95), rgba(13, 20, 38, 0.98));
+  border-top: 2px solid var(--primary);
+  padding: 20px 24px;
+  margin-top: 40px;
+}
+
+.footer-content {
+  max-width: 1400px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.footer small {
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+/* Bloques que solo existen para el informe impreso/PDF; en pantalla
+   normal permanecen ocultos (ver @media print más abajo). */
+.print-only {
+  display: none;
+}
+
+.whatsapp-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, rgba(37, 211, 102, 0.15), rgba(37, 211, 102, 0.08));
+  color: #25D366;
+  text-decoration: none;
+  border: 1px solid rgba(37, 211, 102, 0.3);
+  font-size: 12px;
+  font-weight: 700;
+  transition: all 0.3s ease;
+  white-space: nowrap;
+}
+
+.whatsapp-btn:hover {
+  background: linear-gradient(135deg, rgba(37, 211, 102, 0.3), rgba(37, 211, 102, 0.15));
+  border-color: #25D366;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(37, 211, 102, 0.2);
+}
+
+.whatsapp-btn svg {
+  width: 18px;
+  height: 18px;
+}
+
+/* ============================================================
+   NUEVO BLOQUE: AJUSTES DE COMPATIBILIDAD MÓVIL (iOS & ANDROID)
+   ============================================================ */
 @media screen and (max-width: 767px) {
-  html, body { width: 100vw; overflow-x: hidden; }
-  .app { margin: 12px auto; padding: 0 12px; }
-  .header-inner { flex-direction: column; text-align: center; }
-  .actions-export { flex-direction: column; }
-  .footer-content { flex-direction: column-reverse; gap: 16px; text-align: center; }
+  /* Forzar reset seguro contra scrolls laterales en celulares */
+  html, body {
+    width: 100vw;
+    max-width: 100vw;
+    overflow-x: hidden;
+  }
+
+  /* Reducción inteligente de padding en la app general */
+  .app {
+    margin: 12px auto;
+    padding: 0 12px;
+  }
+
+  /* Arreglo para el Header: Apila el Logo y los Títulos verticalmente */
+  .header-inner {
+    flex-direction: column;
+    text-align: center;
+    gap: 12px;
+    padding: 16px 12px;
+  }
+  
+  .title-block h1 {
+    font-size: 20px; /* Letra un poco más compacta para pantallas chicas */
+  }
+
+  .subtitle {
+    font-size: 12px;
+  }
+
+  /* Ajuste de Paneles para no comerse el espacio del celular */
+  .panel {
+    padding: 16px;
+    border-radius: 10px;
+  }
+
+  /* Botones de acción (como los de exportar) se expanden para presionarse fácil con el dedo */
+  .actions-export {
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .actions-export .btn {
+    width: 100%;
+    text-align: center;
+  }
+
+  /* Arreglo para el Footer: Apila el copyright y el botón de WhatsApp */
+  .footer-content {
+    flex-direction: column-reverse; /* El botón de WhatsApp queda arriba para mejor acceso táctil */
+    gap: 16px;
+    text-align: center;
+  }
+
+  .whatsapp-btn {
+    width: 100%;
+    justify-content: center;
+    padding: 12px 16px; /* Botón más grande para pulsar en móvil */
+  }
 }
 
+/* ============================================
+   ACCESIBILIDAD / GAMA BAJA: RESPETAR REDUCCIÓN DE MOVIMIENTO
+   Sirve tanto para usuarios que activaron esta opción de accesibilidad
+   como para aliviar el rendimiento en celulares de gama baja.
+   ============================================ */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+  .spark {
+    display: none;
+  }
+}
+
+/* ============================================
+   IMPRESIÓN / EXPORTACIÓN A PDF — INFORME TÉCNICO
+   ============================================ */
 @media print {
-  .config-panel, .circuits-panel, .actions-export, .btn, .form-group, .spark { display: none !important; }
-  body { background: white; color: black; }
-  .panel { background: white; border: 1px solid #ccc; }
+  .config-panel, .circuits-panel, .actions-export,
+  .btn, .form-group, .form-actions, .spark {
+    display: none !important;
+  }
+
+  @page {
+    margin: 16mm 14mm;
+  }
+
+  body {
+    background: white;
+    color: #1a1a1a;
+    font-family: 'Segoe UI', Arial, sans-serif;
+  }
+
+  .app {
+    grid-template-columns: 1fr;
+    gap: 0;
+    margin: 0;
+    padding: 0;
+  }
+
+  /* Encabezado con el logo: se mantiene con color de marca para que
+     el informe se identifique de un vistazo, sin el fondo oscuro. */
+  .site-header {
+    position: static;
+    background: none;
+    border-bottom: 2px solid #1a1a1a;
+    box-shadow: none;
+    padding-bottom: 8px;
+    margin-bottom: 12px;
+  }
+  .title-block h1 {
+    -webkit-text-fill-color: #1a1a1a;
+    background: none;
+    color: #1a1a1a;
+    font-size: 20px;
+  }
+  .subtitle {
+    color: #555;
+  }
+
+  .panel {
+    background: white;
+    border: none;
+    box-shadow: none;
+    padding: 0;
+    page-break-inside: avoid;
+  }
+
+  .results-panel h2 {
+    color: #1a1a1a;
+    border-bottom: 2px solid var(--primary-dark);
+    padding-bottom: 6px;
+    font-size: 15px;
+  }
+
+  /* Encabezado del informe: fecha + resumen del sistema configurado */
+  .print-only {
+    display: block;
+  }
+  #printMeta {
+    margin: 4px 0 16px 0;
+    padding: 10px 14px;
+    border: 1px solid #ccc;
+    border-left: 4px solid var(--primary-dark);
+    background: #fafafa;
+    font-size: 12px;
+    color: #333;
+  }
+  .print-meta-row + .print-meta-row {
+    margin-top: 4px;
+  }
+
+  /* Tabla con jerarquía visual de informe: header oscuro, filas alternadas */
+  #tableWrap {
+    border: none;
+    overflow: visible;
+  }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    font-size: 12px;
+  }
+  th {
+    background: #1a1a1a !important;
+    color: white !important;
+    padding: 8px 10px;
+    border: 1px solid #1a1a1a;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    font-size: 11px;
+  }
+  td {
+    padding: 8px 10px;
+    border: 1px solid #ccc;
+    color: #1a1a1a !important;
+  }
+  tbody tr:nth-child(even) td {
+    background: #f5f5f5;
+  }
+  .valido { color: #0a7a2f !important; font-weight: bold; }
+  .invalido { color: #b3001b !important; font-weight: bold; }
+
+  /* La columna Acción (botón eliminar) no tiene sentido en un informe impreso */
+  th:last-child, td:last-child { display: none; }
+
+  .resumen-box, .summary-box {
+    background: #fafafa;
+    border: 1px solid #ccc;
+    border-radius: 0;
+    color: #1a1a1a;
+    margin-top: 14px;
+  }
+  /* El amarillo de marca (#FFEA00) se pierde por contraste sobre
+     fondo blanco; se oscurece solo para el informe impreso. */
+  .logo svg rect[fill="#FFEA00"] {
+    fill: #B8860C !important;
+  }
+  .logo svg path[stroke="#FFEA00"],
+  .logo svg line[stroke="#FFEA00"] {
+    stroke: #B8860C !important;
+  }
+  .logo svg {
+    filter: none;
+  }
+
+  .stat {
+    background: white;
+    border: 1px solid #ddd;
+    padding: 8px 6px;
+  }
+  .stat .value {
+    color: #1a1a1a !important;
+  }
+
+  /* Tarjetas de resumen: más anchas y en una sola línea, para que
+     "Potencia total: 1.50 kW" no se corte en dos renglones. */
+  .stats-grid {
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 8px;
+  }
+  .stat .label,
+  .stat .value {
+    display: inline;
+    white-space: nowrap;
+    font-size: 12px;
+  }
+
+  /* Pie de informe con aclaración técnica */
+  #printFooter {
+    margin-top: 24px;
+    padding-top: 10px;
+    border-top: 1px solid #ccc;
+    font-size: 10px;
+    color: #666;
+    line-height: 1.5;
+    text-align: center;
+  }
+
+  .footer { display: none; }
 }
