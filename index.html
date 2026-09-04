@@ -193,5 +193,72 @@
 </footer>
 
 <script src="script.js"></script>
+
+<!--
+  CURSOR RAYO ELÉCTRICO — agregado, no reemplaza nada de lo anterior.
+  Para quitarlo en el futuro, borrar solo este bloque (style + script).
+-->
+<style>
+  body {
+    cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><polygon points="18,1 6,18 15,18 12,31 27,12 17,12" fill="%23FFD700" stroke="%23231a00" stroke-width="1.5" stroke-linejoin="round"/></svg>') 4 2, auto;
+  }
+</style>
+<script>
+  (function() {
+    const sparks = [];
+    const maxSparks = 12;
+    const color = '#FFD700';
+    const size = 8;
+    const duration = 500;
+    const density = 1;
+
+    function spawnSpark(x, y) {
+      const spark = document.createElement('div');
+      const angle = Math.random() * 360;
+      const scale = (size / 8) * (0.7 + Math.random() * 0.6);
+      spark.innerHTML = `<svg width="20" height="20" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
+        <polygon points="18,1 6,18 15,18 12,31 27,12 17,12" fill="${color}" stroke="${color}" stroke-width="1"/>
+      </svg>`;
+      spark.style.position = 'fixed';
+      spark.style.left = x + 'px';
+      spark.style.top = y + 'px';
+      spark.style.pointerEvents = 'none';
+      spark.style.zIndex = 9999;
+      spark.style.transform = `translate(-50%, -50%) rotate(${angle}deg) scale(${scale})`;
+      spark.style.filter = `drop-shadow(0 0 6px ${color})`;
+      spark.style.opacity = '0.9';
+      document.body.appendChild(spark);
+      sparks.push(spark);
+
+      const driftX = (Math.random() - 0.5) * 30;
+      const driftY = (Math.random() - 0.5) * 30;
+
+      requestAnimationFrame(() => {
+        spark.style.transition = `opacity ${duration}ms ease-out, transform ${duration}ms ease-out`;
+        spark.style.opacity = '0';
+        spark.style.transform = `translate(calc(-50% + ${driftX}px), calc(-50% + ${driftY}px)) rotate(${angle + 40}deg) scale(${scale * 0.3})`;
+      });
+
+      setTimeout(() => {
+        spark.remove();
+        const idx = sparks.indexOf(spark);
+        if (idx > -1) sparks.splice(idx, 1);
+      }, duration);
+    }
+
+    let counter = 0;
+    document.addEventListener('mousemove', (e) => {
+      counter++;
+      if (counter % (5 - density) === 0) {
+        spawnSpark(e.clientX, e.clientY);
+      }
+      if (sparks.length > maxSparks) {
+        const old = sparks.shift();
+        if (old) old.remove();
+      }
+    });
+  })();
+</script>
+
 </body>
 </html>
