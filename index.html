@@ -257,6 +257,23 @@
         if (old) old.remove();
       }
     });
+
+    // Soporte táctil para celular: rayitos al tocar/deslizar el dedo
+    let touchCounter = 0;
+    function handleTouch(e) {
+      for (let i = 0; i < e.touches.length; i++) {
+        touchCounter++;
+        if (touchCounter % (5 - density) === 0) {
+          spawnSpark(e.touches[i].clientX, e.touches[i].clientY);
+        }
+      }
+      if (sparks.length > maxSparks) {
+        const old = sparks.shift();
+        if (old) old.remove();
+      }
+    }
+    document.addEventListener('touchstart', handleTouch, { passive: true });
+    document.addEventListener('touchmove', handleTouch, { passive: true });
   })();
 </script>
 
