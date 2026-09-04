@@ -178,8 +178,16 @@ function aplicarMinimoAEA(tipoCircuito, conductorCalculado, tipoTomacorriente = 
   };
 }
 
+// CORREGIDO: cuando la corriente supera la tabla de conductores (>200A,
+// mm2 === '>70'), antes se devolvía 0V de caída, lo que hacía que
+// validarCaida(0, max) diera "true" y el circuito apareciera como
+// CUMPLE en verde — un falso positivo grave, porque en realidad no hay
+// cable ni térmica normalizados disponibles para esa corriente. Ahora
+// devuelve NaN, que al compararse en validarCaida() da false de forma
+// natural (cualquier comparación con NaN es false en JS), marcando el
+// circuito como inválido en vez de aprobado por error.
 function calcularCaidaTension(corriente, longitud, mm2, sistema) {
-  if (mm2 === '>70') return 0;
+  if (mm2 === '>70') return NaN;
   
   let caida;
   if (sistema === 'trifasico') {
@@ -370,7 +378,11 @@ function renderTablaCircuitos() {
   
   proyectoActual.circuitos.forEach(circuito => {
     const tr = document.createElement('tr');
-    const estadoClass = circuito.valido ? 'valido' : 'invalido';
+    const fueraDeTabla = circuito.conductor === '>70';
+    const estadoClass = fueraDeTabla ? 'invalido' : (circuito.valido ? 'valido' : 'invalido');
+    const caidaTexto = fueraDeTabla
+      ? '⚠️ Corriente fuera de tabla (>200A) — requiere cálculo especial'
+      : `${circuito.caidaV}V (${circuito.caidaPorcentaje}%)`;
     
     tr.innerHTML = `
       <td>${escaparHTML(circuito.tipoCircuito)}</td>
@@ -381,7 +393,7 @@ function renderTablaCircuitos() {
       <td><strong>${circuito.conductor} mm²</strong></td>
       <td>${circuito.disyuntor} A</td>
       <td>${circuito.seccionPE !== null ? circuito.seccionPE + ' mm²' : '-'}</td>
-      <td class="${estadoClass}">${circuito.caidaV}V (${circuito.caidaPorcentaje}%)</td>
+      <td class="${estadoClass}">${caidaTexto}</td>
       <td>
         <button data-id="${circuito.id}" class="btn-delete" title="Eliminar">🗑</button>
       </td>
@@ -400,9 +412,17 @@ function renderResumenTotal() {
   const circuitosValidos = proyectoActual.circuitos.filter(c => c.valido).length;
   const circuitosTotal = proyectoActual.circuitos.length;
   
-  const advertenciaCaida = circuitosValidos < circuitosTotal 
-    ? `⚠️ ${circuitosTotal - circuitosValidos} circuito(s) con caída excesiva` 
-    : '✓ Todos los circuitos cumplen la caída de tensión admitida';
+  const circuitosFueraTabla = proyectoActual.circuitos.filter(c => c.conductor === '>70').length;
+  const circuitosCaidaExcesiva = circuitosTotal - circuitosValidos - circuitosFueraTabla;
+
+  let advertenciaCaida = '✓ Todos los circuitos cumplen la caída de tensión admitida';
+  if (circuitosFueraTabla > 0 && circuitosCaidaExcesiva > 0) {
+    advertenciaCaida = `⚠️ ${circuitosCaidaExcesiva} circuito(s) con caída excesiva, ${circuitosFueraTabla} fuera de tabla (>200A)`;
+  } else if (circuitosFueraTabla > 0) {
+    advertenciaCaida = `⚠️ ${circuitosFueraTabla} circuito(s) con corriente fuera de tabla (>200A) — requieren cálculo especial de un profesional`;
+  } else if (circuitosCaidaExcesiva > 0) {
+    advertenciaCaida = `⚠️ ${circuitosCaidaExcesiva} circuito(s) con caída excesiva`;
+  }
 
   // NUEVO: valida que la potencia contratada alcance para la suma de
   // circuitos cargados. No aplica factor de simultaneidad (la app no lo
