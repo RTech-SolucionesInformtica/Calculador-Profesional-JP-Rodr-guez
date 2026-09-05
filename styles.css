@@ -272,6 +272,20 @@ html, body {
   transform: translateY(-1px);
 }
 
+/* CORREGIDO: esta clase no tenía ninguna regla propia (más allá de
+   ocultarse al imprimir), así que los botones "Agregar/Limpiar" del
+   formulario de circuitos y "Actualizar/Reiniciar checklist" dependían
+   del comportamiento default de inline-block. En pantallas angostas
+   (320-375px) esos pares de botones podían envolver a una segunda línea
+   sin ningún margen entre ellos, a diferencia de .actions-export que sí
+   tenía este mismo tratamiento. */
+.form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 8px;
+}
+
 /* Botones con efectos */
 .btn {
   padding: 12px 20px;
@@ -539,6 +553,18 @@ td {
   }
 
   .actions-export .btn {
+    width: 100%;
+    text-align: center;
+  }
+
+  /* Mismo criterio para los otros dos grupos de botones (circuitForm y
+     checklist 770): a ancho completo y apilados en vez de envolver
+     pegados uno al lado del otro. */
+  .form-actions {
+    flex-direction: column;
+  }
+
+  .form-actions .btn {
     width: 100%;
     text-align: center;
   }

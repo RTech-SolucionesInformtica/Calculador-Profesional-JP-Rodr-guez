@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="theme-color" content="#050811">
   <title>Calculador de Cableado Residencial AEA - Esc. José Martí</title>
   <link rel="stylesheet" href="styles.css">
@@ -441,87 +441,24 @@
 <script src="script.js"></script>
 
 <!--
-  CURSOR RAYO ELÉCTRICO — agregado, no reemplaza nada de lo anterior.
-  Para quitarlo en el futuro, borrar solo este bloque (style + script).
+  CURSOR RAYO ELÉCTRICO — cursor amarillo con forma de rayo.
+  CORREGIDO: antes había DOS sistemas de chispas corriendo en paralelo
+  (la clase ElectricMouse de script.js + un segundo generador de rayitos
+  acá mismo). El segundo no respetaba "prefers-reduced-motion" (sus
+  elementos no tenían className, así que la regla CSS que apaga .spark
+  con esa preferencia no los alcanzaba), y además creaba un <div> nuevo
+  en cada touchmove del celular, lo que podía sentirse "trabado" justo
+  mientras alguien completa el formulario en un teléfono de gama baja.
+  Ahora solo queda el cursor con forma de rayo (decorativo, sin costo de
+  rendimiento) y todo el efecto de chispas lo maneja la única instancia
+  de ElectricMouse ya declarada en script.js, que sí respeta esa
+  preferencia de accesibilidad.
 -->
 <style>
   body {
     cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><polygon points="18,1 6,18 15,18 12,31 27,12 17,12" fill="%23FFD700" stroke="%23231a00" stroke-width="1.5" stroke-linejoin="round"/></svg>') 4 2, auto;
   }
 </style>
-<script>
-  (function() {
-    const sparks = [];
-    const maxSparks = 12;
-    const color = '#FFD700';
-    const size = 8;
-    const duration = 500;
-    const density = 1;
-
-    function spawnSpark(x, y) {
-      const spark = document.createElement('div');
-      const angle = Math.random() * 360;
-      const scale = (size / 8) * (0.7 + Math.random() * 0.6);
-      spark.innerHTML = `<svg width="20" height="20" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
-        <polygon points="18,1 6,18 15,18 12,31 27,12 17,12" fill="${color}" stroke="${color}" stroke-width="1"/>
-      </svg>`;
-      spark.style.position = 'fixed';
-      spark.style.left = x + 'px';
-      spark.style.top = y + 'px';
-      spark.style.pointerEvents = 'none';
-      spark.style.zIndex = 9999;
-      spark.style.transform = `translate(-50%, -50%) rotate(${angle}deg) scale(${scale})`;
-      spark.style.filter = `drop-shadow(0 0 6px ${color})`;
-      spark.style.opacity = '0.9';
-      document.body.appendChild(spark);
-      sparks.push(spark);
-
-      const driftX = (Math.random() - 0.5) * 30;
-      const driftY = (Math.random() - 0.5) * 30;
-
-      requestAnimationFrame(() => {
-        spark.style.transition = `opacity ${duration}ms ease-out, transform ${duration}ms ease-out`;
-        spark.style.opacity = '0';
-        spark.style.transform = `translate(calc(-50% + ${driftX}px), calc(-50% + ${driftY}px)) rotate(${angle + 40}deg) scale(${scale * 0.3})`;
-      });
-
-      setTimeout(() => {
-        spark.remove();
-        const idx = sparks.indexOf(spark);
-        if (idx > -1) sparks.splice(idx, 1);
-      }, duration);
-    }
-
-    let counter = 0;
-    document.addEventListener('mousemove', (e) => {
-      counter++;
-      if (counter % (5 - density) === 0) {
-        spawnSpark(e.clientX, e.clientY);
-      }
-      if (sparks.length > maxSparks) {
-        const old = sparks.shift();
-        if (old) old.remove();
-      }
-    });
-
-    // Soporte táctil para celular: rayitos al tocar/deslizar el dedo
-    let touchCounter = 0;
-    function handleTouch(e) {
-      for (let i = 0; i < e.touches.length; i++) {
-        touchCounter++;
-        if (touchCounter % (5 - density) === 0) {
-          spawnSpark(e.touches[i].clientX, e.touches[i].clientY);
-        }
-      }
-      if (sparks.length > maxSparks) {
-        const old = sparks.shift();
-        if (old) old.remove();
-      }
-    }
-    document.addEventListener('touchstart', handleTouch, { passive: true });
-    document.addEventListener('touchmove', handleTouch, { passive: true });
-  })();
-</script>
 
 </body>
 </html>
