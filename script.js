@@ -784,6 +784,226 @@ const COEFICIENTE_SIMULTANEIDAD_770_8 = {
   'Superior': 0.6
 };
 
+// ============================================================
+// NUEVO — Tabla 770.7.III: puntos mínimos de utilización por
+// ambiente (IUG/TUG). Módulo independiente y aditivo: usa su
+// propia clave de localStorage (AMBIENTES_770_KEY) y su propio
+// array (ambientesChecklist770), sin tocar proyectoActual ni
+// CHECKLIST_770_KEY, para no interferir con nada ya existente.
+//
+// Solo se calculan automáticamente los casos donde el texto de
+// la norma (770.7.1) es puntual y verificable:
+//   - Dormitorio, según tramo de superficie (≤10 m² y ≤36 m²).
+//   - Kitchinette (770.7.1.o): regla fija, independiente del
+//     resto de los mínimos del ambiente donde se ubica.
+//   - Estar/Comedor/Escritorio/Estudio/Biblioteca (Tabla 770.7.III,
+//     confirmada por el usuario contra el PDF de la guía AEA 770):
+//     IUG = 1 boca cada 18 m² o fracción (mínimo 1); TUG = 1 boca
+//     cada 6 m² o fracción (mínimo 2); TUE no exigible. Estos
+//     valores son iguales para los 4 grados de electrificación.
+// Para el resto de los destinos (Cocina, Baño, Lavadero, Pasillo,
+// Garage, Otro) la Tabla 770.7.III fija mínimos que no pude
+// verificar con certeza completa contra el texto vigente; por eso
+// esos casos quedan como carga MANUAL (el profesional los completa
+// mirando la tabla), en vez de arriesgar un número mal calculado
+// en una herramienta de cumplimiento normativo.
+// ============================================================
+const AMBIENTES_770_KEY = 'aea_checklist770_ambientes_v1';
+let ambientesChecklist770 = [];
+
+const TIPOS_AMBIENTE_AUTOMATICOS_770 = ['Dormitorio', 'Kitchinette', 'Estar/Comedor'];
+
+// Tabla 770.7.III (parcial, casos verificados) - Dormitorio,
+// Kitchinette y Estar/Comedor.
+function calcularMinimoAmbiente770(tipo, superficie) {
+  if (tipo === 'Estar/Comedor') {
+    if (!superficie || superficie <= 0) return null;
+    const iug = Math.max(Math.ceil(superficie / 18), 1);
+    const tug = Math.max(Math.ceil(superficie / 6), 2);
+    return {
+      iug,
+      tug,
+      nota: `Estar/Comedor ${superficie} m² — IUG: 1 boca c/18 m² o fracción (mín. 1); TUG: 1 boca c/6 m² o fracción (mín. 2); TUE no exigible. Igual en los 4 grados (770.7.III)`
+    };
+  }
+  if (tipo === 'Dormitorio') {
+    if (!superficie || superficie <= 0) return null;
+    if (superficie <= 10) {
+      return { iug: 1, tug: 2, nota: 'Dormitorio ≤10 m² (770.7.III)' };
+    }
+    if (superficie <= 36) {
+      return { iug: 1, tug: 3, nota: 'Dormitorio >10 m² y ≤36 m² (770.7.III)' };
+    }
+    return { iug: null, tug: null, nota: '⚠️ Dormitorio >36 m²: tramo no verificado en esta calculadora, cargar manualmente según tabla vigente' };
+  }
+  if (tipo === 'Kitchinette') {
+    return {
+      iug: 1,
+      tug: 2,
+      nota: '770.7.1.o): además, 1 tomacorriente para artefacto de ubicación fija, independiente de los mínimos del ambiente donde se ubica'
+    };
+  }
+  return null;
+}
+
+function actualizarCamposAmbiente770() {
+  const tipo = document.getElementById('tipoAmbiente770')?.value;
+  const campoSuperficie = document.getElementById('campoSuperficieAmbiente770');
+  const camposManuales = document.getElementById('camposManualesAmbiente770');
+  if (!campoSuperficie || !camposManuales) return;
+
+  const esAutomatico = TIPOS_AMBIENTE_AUTOMATICOS_770.includes(tipo);
+  // Dormitorio y Estar/Comedor necesitan el dato de superficie para calcular
+  // el mínimo; Kitchinette es un valor fijo que no depende de la superficie.
+  const necesitaSuperficie = (tipo === 'Dormitorio' || tipo === 'Estar/Comedor');
+  campoSuperficie.style.display = necesitaSuperficie ? '' : 'none';
+  camposManuales.style.display = esAutomatico ? 'none' : '';
+}
+
+function agregarAmbiente770(event) {
+  event.preventDefault();
+
+  const tipo = document.getElementById('tipoAmbiente770').value;
+  const nombreInput = document.getElementById('nombreAmbiente770');
+  const nombre = nombreInput.value.trim() || tipo;
+  const superficie = Number(document.getElementById('superficieAmbiente770').value) || null;
+
+  let iug, tug, nota;
+
+  if (TIPOS_AMBIENTE_AUTOMATICOS_770.includes(tipo)) {
+    const necesitaSuperficie = (tipo === 'Dormitorio' || tipo === 'Estar/Comedor');
+    if (necesitaSuperficie && !superficie) {
+      alert('⚠️ Ingresá la superficie del ambiente para calcular el mínimo (770.7.III)');
+      return;
+    }
+    const minimo = calcularMinimoAmbiente770(tipo, superficie);
+    iug = minimo.iug;
+    tug = minimo.tug;
+    nota = minimo.nota;
+  } else {
+    const iugManual = document.getElementById('iugManualAmbiente770').value;
+    const tugManual = document.getElementById('tugManualAmbiente770').value;
+    if (iugManual === '' || tugManual === '') {
+      alert('⚠️ Completá los mínimos de IUG y TUG según la Tabla 770.7.III para este ambiente');
+      return;
+    }
+    iug = Number(iugManual);
+    tug = Number(tugManual);
+    nota = 'Cargado manualmente por el usuario (verificar contra 770.7.III vigente)';
+  }
+
+  ambientesChecklist770.push({
+    id: Date.now(),
+    tipo,
+    nombre,
+    superficie,
+    iug,
+    tug,
+    nota
+  });
+
+  guardarAmbientes770();
+  renderAmbientes770();
+  event.target.reset();
+  actualizarCamposAmbiente770();
+}
+
+function eliminarAmbiente770(id) {
+  if (!confirm('¿Eliminar este ambiente?')) return;
+  ambientesChecklist770 = ambientesChecklist770.filter(a => a.id !== id);
+  guardarAmbientes770();
+  renderAmbientes770();
+}
+
+function renderAmbientes770() {
+  const tbody = document.querySelector('#ambientesTable770 tbody');
+  const emptyState = document.getElementById('emptyStateAmbientes770');
+  if (!tbody || !emptyState) return;
+
+  tbody.innerHTML = '';
+
+  if (ambientesChecklist770.length === 0) {
+    emptyState.style.display = 'block';
+    actualizarResumenPuntosUtilizacion770();
+    return;
+  }
+  emptyState.style.display = 'none';
+
+  ambientesChecklist770.forEach(a => {
+    const tr = document.createElement('tr');
+    const pendiente = a.iug === null || a.tug === null;
+    tr.innerHTML = `
+      <td>${escaparHTML(a.nombre)}</td>
+      <td>${escaparHTML(a.tipo)}</td>
+      <td>${a.superficie ? a.superficie + ' m²' : '-'}</td>
+      <td class="${pendiente ? 'invalido' : ''}">${a.iug === null ? '⚠️' : a.iug}</td>
+      <td class="${pendiente ? 'invalido' : ''}">${a.tug === null ? '⚠️' : a.tug}</td>
+      <td style="font-size:12px; opacity:0.8;">${escaparHTML(a.nota)}</td>
+      <td><button data-id="${a.id}" class="btn-delete" title="Eliminar">🗑</button></td>
+    `;
+    tbody.appendChild(tr);
+  });
+
+  tbody.querySelectorAll('.btn-delete').forEach(btn => {
+    // stopPropagation es necesario: el listener global de document (línea ~555)
+    // escucha cualquier click en .btn-delete y llama a eliminarCircuito(id).
+    // Sin esto, borrar un ambiente también dispararía el confirm() de
+    // "¿Eliminar este circuito?" por error, ya que reutilizamos la misma
+    // clase visual .btn-delete.
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      eliminarAmbiente770(Number(btn.dataset.id));
+    });
+  });
+
+  actualizarResumenPuntosUtilizacion770();
+}
+
+function actualizarResumenPuntosUtilizacion770() {
+  const contenedor = document.getElementById('resultadoPuntosUtilizacion770');
+  if (!contenedor) return;
+
+  if (ambientesChecklist770.length === 0) {
+    contenedor.innerHTML = 'Agregá ambientes para ver el total de puntos mínimos de utilización exigidos.';
+    return;
+  }
+
+  const pendientes = ambientesChecklist770.filter(a => a.iug === null || a.tug === null);
+  const totalIUG = ambientesChecklist770.reduce((sum, a) => sum + (a.iug || 0), 0);
+  const totalTUG = ambientesChecklist770.reduce((sum, a) => sum + (a.tug || 0), 0);
+
+  contenedor.innerHTML = `
+    <div class="stats-grid">
+      <div class="stat"><span class="label">Ambientes cargados:</span><span class="value">${ambientesChecklist770.length}</span></div>
+      <div class="stat"><span class="label">Total bocas IUG mínimas:</span><span class="value">${totalIUG}${pendientes.length ? '+' : ''}</span></div>
+      <div class="stat"><span class="label">Total bocas TUG mínimas:</span><span class="value">${totalTUG}${pendientes.length ? '+' : ''}</span></div>
+    </div>
+    ${pendientes.length ? `<p class="invalido" style="margin:6px 0;">⚠️ ${pendientes.length} ambiente(s) con mínimo sin verificar — completalo manualmente contra la Tabla 770.7.III vigente.</p>` : ''}
+    <p style="opacity:0.7; font-size:12px; margin-top:6px;">
+      Esta suma es el mínimo normativo por ambiente. Falta verificar aparte, sobre el plano, que la
+      cantidad de bocas realmente instaladas en cada local cumpla estos mínimos.
+    </p>
+  `;
+}
+
+function guardarAmbientes770() {
+  try {
+    localStorage.setItem(AMBIENTES_770_KEY, JSON.stringify(ambientesChecklist770));
+  } catch (err) {
+    console.warn('No se pudieron guardar los ambientes (770.7.III):', err);
+  }
+}
+
+function cargarAmbientes770() {
+  try {
+    const raw = localStorage.getItem(AMBIENTES_770_KEY);
+    ambientesChecklist770 = raw ? JSON.parse(raw) : [];
+  } catch (err) {
+    console.warn('No se pudieron cargar los ambientes (770.7.III):', err);
+    ambientesChecklist770 = [];
+  }
+}
+
 function actualizarGradoElectrificacion() {
   const contenedor = document.getElementById('resultadoGradoElectrificacion');
   if (!contenedor) return;
@@ -889,6 +1109,7 @@ function actualizarChecklist770() {
   actualizarGradoElectrificacion();
   evaluarResistenciaTierra();
   actualizarResumenAuto77015();
+  actualizarResumenPuntosUtilizacion770(); // NUEVO: refresca el resumen de 770.7.III junto con el resto
   calcularEstadoGeneralChecklist770();
   guardarChecklist770();
 }
@@ -937,6 +1158,18 @@ function initChecklist770() {
       guardarChecklist770();
     });
   });
+
+  // NUEVO: inicialización del módulo 770.7.III (puntos mínimos de
+  // utilización por ambiente). Independiente del resto del checklist.
+  cargarAmbientes770();
+  renderAmbientes770();
+  const formAmbiente770 = document.getElementById('formAmbiente770');
+  if (formAmbiente770) formAmbiente770.addEventListener('submit', agregarAmbiente770);
+  const tipoAmbienteSel770 = document.getElementById('tipoAmbiente770');
+  if (tipoAmbienteSel770) {
+    tipoAmbienteSel770.addEventListener('change', actualizarCamposAmbiente770);
+    actualizarCamposAmbiente770();
+  }
 
   CAMPOS_CHECKLIST_770.forEach(id => {
     const el = document.getElementById(id);

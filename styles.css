@@ -734,3 +734,15 @@ td {
   padding: 6px 0;
   border-bottom: 1px dashed rgba(255, 234, 0, 0.08);
 }
+/* NUEVO — módulo 770.7.III (puntos mínimos de utilización por ambiente).
+   Reutiliza el mismo criterio visual de #tableWrap para que la tabla
+   de ambientes tenga scroll horizontal en mobile, sin modificar la
+   regla original. */
+#tableWrapAmbientes770 {
+  overflow-x: auto;
+  max-width: 100%;
+  border-radius: 10px;
+  border: 1px solid var(--border-color);
+  -webkit-overflow-scrolling: touch;
+  margin-top: 10px;
+}
