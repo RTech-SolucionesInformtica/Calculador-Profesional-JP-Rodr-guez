@@ -69,12 +69,30 @@
       <label for="longitudPrincipal">Longitud de acometida principal (m)</label>
       <input type="number" id="longitudPrincipal" inputmode="numeric" value="20">
     </div>
+    <div class="form-group">
+      <label for="iccOrigen">Corriente de cortocircuito presunta en el origen (kA)</label>
+      <input type="number" id="iccOrigen" step="0.1" inputmode="decimal" placeholder="Ej: 6 (dato que debe informar la distribuidora)">
+      <small style="opacity:0.7">AEA 770, pág. 45 (770.15): la empresa distribuidora debe brindar este valor en los bornes del medidor. Sin este dato no se puede verificar que las térmicas soporten el cortocircuito.</small>
+    </div>
+    <div class="form-group">
+      <label for="poderCorteTermicas">Poder de corte de las térmicas a instalar (kA)</label>
+      <select id="poderCorteTermicas">
+        <option value="3">3 kA</option>
+        <option value="4.5">4,5 kA</option>
+        <option value="6" selected>6 kA</option>
+        <option value="10">10 kA</option>
+        <option value="15">15 kA</option>
+        <option value="25">25 kA</option>
+      </select>
+      <small style="opacity:0.7">Dato de placa del interruptor (PdCcc), marcado en un rectángulo en el propio dispositivo.</small>
+    </div>
     <button id="btnConfigurar" class="btn btn-primary btn-large">✓ Configurar Sistema</button>
     
     <!-- Tablero Principal Resumen -->
     <div id="panelTablero" class="summary-box" style="display: none; margin-top: 15px;">
       <h3>📊 Tablero Principal</h3>
       <div id="resumenTablero"></div>
+      <div id="resultadoPoderCorte" class="checklist-result" style="margin-top:10px;"></div>
     </div>
   </section>
 
@@ -108,8 +126,9 @@
         <input type="text" id="ambiente" placeholder="Ej: Cocina, Dormitorio">
       </div>
       <div class="form-group">
-        <label for="potenciaCircuito">Potencia (kW)</label>
+        <label for="potenciaCircuito">Potencia instalada (kW)</label>
         <input type="number" id="potenciaCircuito" step="0.01" inputmode="decimal" placeholder="Ej: 1.5">
+        <small style="opacity:0.7">Para circuitos de <strong>Iluminación (IUG)</strong> se aplica automáticamente el Factor de Simultaneidad 2/3 sobre este valor para calcular cable y térmica (AEA 770, Tabla 770.8.I nota 2).</small>
       </div>
       <div class="form-group">
         <label for="longitud">Longitud del circuito (m)</label>
@@ -122,6 +141,15 @@
           <option value="5">5% (circuitos que alimentan solo motores)</option>
         </select>
         <small style="opacity:0.7">Se autoselecciona según el tipo de circuito (AEA 90364-7-771, cláus. 771.13.b); podés cambiarlo si tenés un criterio justificado.</small>
+      </div>
+      <div class="form-group">
+        <label for="circuitosPorCano">Circuitos que comparten este caño</label>
+        <select id="circuitosPorCano">
+          <option value="1">1 (canalización individual)</option>
+          <option value="2">2 circuitos agrupados</option>
+          <option value="3">3 circuitos agrupados</option>
+        </select>
+        <small style="opacity:0.7">Si dos o más circuitos van por la misma cañería, el calibre máximo admitido baja (AEA 770, Tabla 770.12, pág. 40). Para más de 3 circuitos agrupados, consultar la tabla completa con un profesional.</small>
       </div>
       <div class="form-actions">
         <button type="submit" class="btn btn-primary">+ Agregar</button>
@@ -148,6 +176,7 @@
             <th>I (A)</th>
             <th>Cable</th>
             <th>Térmica</th>
+            <th>Agrup.</th>
             <th>PE (tierra)</th>
             <th>Caída (V)</th>
             <th>Acción</th>
@@ -206,6 +235,14 @@
         <small style="opacity:0.7">Superficie límite de aplicación = cubierta + 50% de la semicubierta (770.7.1.1).</small>
       </div>
       <div id="resultadoGradoElectrificacion" class="checklist-result"></div>
+      <small style="opacity:0.65; display:block; margin-top:6px;">
+        ⚠️ La cantidad mínima de circuitos por grado y el "coeficiente de simultaneidad" que se muestran abajo
+        son valores de referencia que no pudimos verificar palabra por palabra contra las tablas 770.7.II/770.8.II
+        vigentes (no están disponibles como texto en esta guía). No se usan para calcular ningún circuito cargado
+        en la app — el cálculo real de cada circuito sigue el método de la Tabla 770.8.I (potencia por boca o
+        potencia real, con el factor de simultaneidad 2/3 solo para IUG). Verificar estos dos valores contra la
+        edición vigente de AEA 90364-7-770 antes de usarlos como definitivos.
+      </small>
     </div>
 
     <div class="checklist-group">

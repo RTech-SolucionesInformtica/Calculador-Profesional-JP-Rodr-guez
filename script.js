@@ -14,12 +14,22 @@ const TENSIONES = {
 // CORREGIDO: los disyuntores ahora usan la serie normalizada IEC 60898
 // (10-16-20-25-32-40-50-63-80-100-125-160-200A). Los valores 15A y 30A
 // del original no existen como térmicas comerciales.
+// CORREGIDO contra la Tabla "Calibre máximo de las protecciones para los
+// cables" de la Guía AEA 770 (pág. 40, columna "cable tipo domiciliario
+// IRAM NM 247-3 en cañería embutida, 1 circuito por caño"):
+//   1,5 mm² -> ≤15 A   2,5 mm² -> ≤20 A   4 mm² -> ≤25 A   6 mm² -> ≤32 A
+// Antes el código permitía 4mm²→32A y 6mm²→40A, superando el máximo de
+// la tabla: una térmica sobredimensionada para la sección del cable puede
+// no cortar antes de que el conductor se recaliente (viola Ib≤In≤Iz,
+// 770.15.3). Las secciones mayores a 6mm² no figuran en la tabla de esta
+// guía simplificada; se mantienen como estimación a verificar contra la
+// tabla completa de AEA 90364-5-52/770-B.
 const CONDUCTORES_AEA = [
   { amperios: 10, mm2: 1.5, disyuntor: 10 },
   { amperios: 16, mm2: 2.5, disyuntor: 16 },
   { amperios: 20, mm2: 2.5, disyuntor: 20 },
-  { amperios: 32, mm2: 4, disyuntor: 32 },
-  { amperios: 40, mm2: 6, disyuntor: 40 },
+  { amperios: 25, mm2: 4, disyuntor: 25 },
+  { amperios: 32, mm2: 6, disyuntor: 32 },
   { amperios: 50, mm2: 10, disyuntor: 50 },
   { amperios: 63, mm2: 10, disyuntor: 63 },
   { amperios: 80, mm2: 16, disyuntor: 80 },
@@ -28,6 +38,75 @@ const CONDUCTORES_AEA = [
   { amperios: 160, mm2: 50, disyuntor: 160 },
   { amperios: 200, mm2: 70, disyuntor: 200 }
 ];
+
+// NUEVO: Tabla "Calibre máximo de las protecciones para los cables" (Guía
+// AEA 770, pág. 40) — columna cable domiciliario IRAM NM 247-3 en cañería
+// embutida, discriminada por cantidad de circuitos que comparten el mismo
+// caño (770.12.II). Antes la app asumía siempre "1 circuito por caño"
+// para cualquier instalación, lo cual sobrestima la corriente admisible
+// real cuando dos o más circuitos van agrupados en la misma canalización
+// (caso muy común en la práctica: por ejemplo, todos los TUG de una
+// vivienda saliendo del tablero por el mismo caño).
+// Solo cubre 1,5/2,5/4/6 mm² y 1/2/3 circuitos, que es lo único que
+// figura como texto en esta guía; para secciones mayores o agrupamientos
+// de más de 3 circuitos no hay dato en el documento y se mantiene el
+// criterio de 1 circuito por caño con una advertencia.
+const CALIBRE_MAX_AGRUPAMIENTO_770 = {
+  1.5: { 1: 15, 2: 10, 3: 10 },
+  2.5: { 1: 20, 2: 15, 3: 13 },
+  4:   { 1: 25, 2: 20, 3: 16 },
+  6:   { 1: 32, 2: 25, 3: 25 }
+};
+
+// Serie comercial de térmicas IEC 60898 usada en toda la app.
+const SERIE_DISYUNTORES = [10, 16, 20, 25, 32, 40, 50, 63, 80, 100, 125, 160, 200];
+
+// Elige la térmica comercial más grande que sea >= corriente de empleo Ib
+// y al mismo tiempo <= el máximo admitido por el cable (maxAdmitido, ya
+// sea de la tabla de agrupamiento o de la tabla simple).
+// CORREGIDO (bug de seguridad detectado en revisión): la versión anterior,
+// cuando ninguna térmica comercial cumplía ambas condiciones a la vez
+// (por ejemplo Ib=12A con maxAdmitido=15A, donde la serie comercial salta
+// de 10A a 16A), elegía la térmica MAYOR que no superara maxAdmitido —en
+// ese ejemplo, 10A— devolviendo una térmica por DEBAJO de la corriente de
+// diseño (In=10A < Ib=12A). Eso viola la condición básica Ib≤In≤Iz y el
+// circuito terminaba mostrado como "cumple" (verde) en la tabla principal,
+// porque esa tabla solo valida la caída de tensión, no la coordinación
+// cable-térmica. Ahora, si no hay ninguna térmica que cumpla Ib≤In≤maxAdmitido,
+// se devuelve null para que el llamador pruebe con la sección de cable
+// siguiente en vez de aceptar una térmica subdimensionada.
+function elegirDisyuntorComercial(corriente, maxAdmitido) {
+  const candidatos = SERIE_DISYUNTORES.filter(d => d >= corriente && d <= maxAdmitido);
+  return candidatos.length > 0 ? Math.min(...candidatos) : null;
+}
+
+// Devuelve el conductor (mm², disyuntor) más chico que admite la
+// "corriente" dada, respetando el calibre máximo de protección para la
+// cantidad de "circuitosPorCano" indicada (1, 2 o 3). Para secciones no
+// cubiertas por CALIBRE_MAX_AGRUPAMIENTO_770 (>6mm²) se usa el criterio
+// de 1 circuito por caño de CONDUCTORES_AEA, ya que la guía no da esos
+// valores agrupados.
+function encontrarConductorConAgrupamiento(corriente, circuitosPorCano = 1) {
+  const secciones = [1.5, 2.5, 4, 6];
+  for (const mm2 of secciones) {
+    const tabla = CALIBRE_MAX_AGRUPAMIENTO_770[mm2];
+    const maxAdmitido = tabla[circuitosPorCano] ?? tabla[3]; // >3 circuitos: usar el más restrictivo disponible como piso conservador
+    if (corriente <= maxAdmitido) {
+      const disyuntor = elegirDisyuntorComercial(corriente, maxAdmitido);
+      // Si esta sección de cable no tiene ninguna térmica comercial que
+      // respete Ib≤In≤maxAdmitido, se prueba con la sección siguiente
+      // (más grande) en vez de aceptar una térmica subdimensionada.
+      if (disyuntor !== null) {
+        return { mm2, disyuntor, amperios: maxAdmitido };
+      }
+    }
+  }
+  // Fuera del rango cubierto por la tabla de agrupamiento (>6mm²), o
+  // ninguna sección de la tabla tenía una térmica válida: cae al
+  // criterio de 1 circuito por caño ya existente, con nota de que el
+  // agrupamiento no está verificado para esta sección.
+  return encontrarConductor(corriente);
+}
 
 // NUEVO: secciones mínimas exigidas por la AEA 90364 según tipo de
 // circuito, independientemente de la corriente que dé el cálculo.
@@ -72,6 +151,14 @@ const COS_PHI_TIPOS = {
   'Tomacorriente': 0.95,
   'Otro': 0.95
 };
+
+// NUEVO: factor de simultaneidad exigido por AEA 90364-7-770, Tabla 770.8.I,
+// nota (2): "A la potencia total del circuito IUG debe afectársela por el
+// Factor de Simultaneidad 2/3, para los otros circuitos el Factor de
+// Simultaneidad se toma igual a 1". Verificado además contra el ejemplo
+// numérico de la guía (pág. 27-29): 15 bocas x 60 VA/boca x 2/3 = 600 VA,
+// que da exactamente Ib = 600/220 = 2,73 A, el valor que usa la guía.
+const FACTOR_SIMULTANEIDAD_IUG = 2 / 3;
 
 function obtenerCosPhiCircuito(tipoCircuito, cosPhiGeneral) {
   const cosPhiTipo = COS_PHI_TIPOS[tipoCircuito];
@@ -128,6 +215,8 @@ let proyectoActual = {
   potenciaTotal: 0,
   factorPotencia: 0.95,
   longitudPrincipal: 20,
+  iccOrigen: null,
+  poderCorteTermicas: 6,
   circuitos: []
 };
 
@@ -233,6 +322,45 @@ function cargarProyecto() {
   return false;
 }
 
+// NUEVO (AEA 770, pág. 45, "Verificación de los cables a las
+// sobrecorrientes"): "Se debe cumplir PdCcc ≥ I''k", donde I''k es la
+// máxima corriente de cortocircuito en el punto donde está instalado el
+// dispositivo de protección (dato que debe dar la empresa distribuidora)
+// y PdCcc es el poder de corte del interruptor (dato de placa).
+// Esta es solo LA MITAD de la verificación de cortocircuito que pide la
+// guía: falta la verificación térmica k²S²≥I²t (pág. 45), que requiere
+// la energía específica pasante del fabricante de cada térmica — dato
+// que esta app no tiene, por eso no se calcula acá.
+function evaluarPoderDeCorte() {
+  const contenedor = document.getElementById('resultadoPoderCorte');
+  if (!contenedor) return;
+
+  const icc = proyectoActual.iccOrigen;
+  const pdc = proyectoActual.poderCorteTermicas;
+
+  if (!icc) {
+    contenedor.innerHTML = `
+      <span class="invalido">
+        ⚠️ Falta el dato de corriente de cortocircuito en el origen (Icc). Sin ese valor,
+        provisto por la empresa distribuidora, no se puede verificar que las térmicas elegidas
+        soporten el cortocircuito (AEA 770, 770.15, pág. 45: PdCcc ≥ I''k).
+      </span>`;
+    return;
+  }
+
+  const cumple = pdc >= icc;
+  contenedor.innerHTML = `
+    <span class="${cumple ? 'valido' : 'invalido'}">
+      PdCcc (${pdc} kA) ${cumple ? '≥' : '<'} I''k (${icc} kA) —
+      ${cumple ? '✓ el poder de corte declarado cubre la Icc informada' : '⚠️ el poder de corte declarado NO alcanza: elegir térmicas de mayor PdCcc'}
+    </span>
+    <p style="opacity:0.7; font-size:12px; margin-top:6px;">
+      Esta verificación cubre solo el poder de corte (770.15, pág. 45). Falta además la
+      verificación térmica k²S²≥I²t con la energía específica pasante de cada térmica
+      (dato de fabricante) — no calculada por esta app.
+    </p>`;
+}
+
 function renderResumenTablero() {
   const panel = document.getElementById('panelTablero');
   const resumen = document.getElementById('resumenTablero');
@@ -266,6 +394,8 @@ function renderResumenTablero() {
       <div class="stat"><span class="label">Caída:</span><span class="value">${caidaV}V (${caidaPorcentaje}%)</span></div>
     </div>
   `;
+
+  evaluarPoderDeCorte();
 }
 
 // NUEVO: muestra el selector de tipo de tomacorriente solo cuando
@@ -306,13 +436,36 @@ function agregarCircuito(event) {
     alert('⚠️ Completa todos los campos');
     return;
   }
+
+  // CORREGIDO: igual que en configurarSistema(), "!potenciaCircuito" y
+  // "!longitud" no detectan valores negativos, que producían corrientes
+  // y caídas de tensión negativas sin ningún aviso al usuario.
+  if (potenciaCircuito <= 0) {
+    alert('⚠️ La potencia del circuito debe ser mayor a 0');
+    return;
+  }
+  if (longitud <= 0) {
+    alert('⚠️ La longitud del circuito debe ser mayor a 0');
+    return;
+  }
   
   // CORREGIDO: usa el cos φ propio del tipo de carga (motores/compresores
   // tienen componente inductiva mayor), tomando el más conservador entre
   // ese valor y el cos φ general configurado por el usuario.
   const cosPhiCircuito = obtenerCosPhiCircuito(tipoCircuito, proyectoActual.factorPotencia);
-  const corriente = calcularCorriente(potenciaCircuito, proyectoActual.tipoSistema, cosPhiCircuito);
-  let conductor = encontrarConductor(corriente);
+
+  // NUEVO (AEA 770, Tabla 770.8.I nota 2): la potencia declarada para un
+  // circuito de Iluminación (IUG) se toma como potencia instalada, y a
+  // los efectos de dimensionar cable/térmica se le aplica el Factor de
+  // Simultaneidad 2/3. Para el resto de los circuitos (TUG, cocina,
+  // lavarropas, etc.) el factor es 1 (se usa la potencia declarada tal cual).
+  const potenciaDPMS = tipoCircuito === 'Iluminación'
+    ? potenciaCircuito * FACTOR_SIMULTANEIDAD_IUG
+    : potenciaCircuito;
+
+  const corriente = calcularCorriente(potenciaDPMS, proyectoActual.tipoSistema, cosPhiCircuito);
+  const circuitosPorCano = Number(document.getElementById('circuitosPorCano')?.value) || 1;
+  let conductor = encontrarConductorConAgrupamiento(corriente, circuitosPorCano);
 
   // CORREGIDO: aplica la sección/térmica mínima exigida por AEA según
   // el tipo de circuito (tomas, cocina, lavarropas, etc.), aunque la
@@ -333,7 +486,9 @@ function agregarCircuito(event) {
     tipoTomacorriente: tipoCircuito === 'Tomacorriente' ? tipoTomacorriente : null,
     ambiente,
     potenciaCircuito,
+    potenciaDPMS,
     longitud,
+    circuitosPorCano,
     caidaMaxima,
     cosPhiCircuito,
     corriente,
@@ -349,8 +504,26 @@ function agregarCircuito(event) {
   guardarProyecto();
   renderTablaCircuitos();
   
-  crearExplosionEnClick(event.clientX, event.clientY);
+  // CORREGIDO: "event" acá es el evento "submit" del formulario, que no
+  // tiene clientX/clientY (esas propiedades solo existen en eventos de
+  // mouse). Antes esto generaba chispas en una posición inválida
+  // (NaN, NaN) cada vez que se agregaba un circuito. Ahora se usa la
+  // posición del botón que se tocó/clickeó para agregar el circuito
+  // (event.submitter, con buen soporte en navegadores modernos), y si
+  // no está disponible simplemente se omite el efecto en vez de generar
+  // chispas mal ubicadas.
+  const boton = event.submitter;
+  if (boton && typeof boton.getBoundingClientRect === 'function') {
+    const rect = boton.getBoundingClientRect();
+    crearExplosionEnClick(rect.left + rect.width / 2, rect.top + rect.height / 2);
+  }
   document.getElementById('circuitForm').reset();
+  // CORREGIDO: form.reset() no dispara el evento "change" del select
+  // tipoCircuito, así que el campo "Tipo de Tomacorriente" (que solo
+  // debe verse cuando el tipo elegido es "Tomacorriente") quedaba
+  // visible después de agregar el circuito, aunque el select ya haya
+  // vuelto a "-- Seleccionar --".
+  toggleGrupoTipoTomacorriente();
 }
 
 function eliminarCircuito(id) {
@@ -388,10 +561,11 @@ function renderTablaCircuitos() {
       <td>${escaparHTML(circuito.tipoCircuito)}</td>
       <td>${circuito.tipoTomacorriente || '-'}</td>
       <td>${escaparHTML(circuito.ambiente)}</td>
-      <td>${circuito.potenciaCircuito}</td>
+      <td>${circuito.potenciaCircuito}${circuito.tipoCircuito === 'Iluminación' ? ` <span style="opacity:0.65;font-size:11px;">(DPMS ×2/3 = ${circuito.potenciaDPMS.toFixed(2)} kW)</span>` : ''}</td>
       <td>${circuito.corriente}</td>
       <td><strong>${circuito.conductor} mm²</strong></td>
       <td>${circuito.disyuntor} A</td>
+      <td>${circuito.circuitosPorCano || 1}</td>
       <td>${circuito.seccionPE !== null ? circuito.seccionPE + ' mm²' : '-'}</td>
       <td class="${estadoClass}">${caidaTexto}</td>
       <td>
@@ -485,11 +659,21 @@ function exportarPDF() {
   window.print();
 }
 
+// CORREGIDO: "Limpiar Todo" decía borrar "todo el proyecto" pero solo
+// eliminaba STORAGE_KEY (sistema + circuitos). El checklist de la Sección
+// 770 (CHECKLIST_770_KEY) y los ambientes cargados (AMBIENTES_770_KEY)
+// quedaban guardados en localStorage y reaparecían después del reload,
+// lo cual no coincide con lo que el botón promete al usuario.
 function limpiarTodo() {
-  if (confirm('¿Eliminar todo el proyecto? Esta acción no se puede deshacer.')) {
-    proyectoActual = { tipoSistema: '', potenciaTotal: 0, factorPotencia: 0.95, longitudPrincipal: 20, circuitos: [] };
+  if (confirm('¿Eliminar todo el proyecto (sistema, circuitos, checklist y ambientes)? Esta acción no se puede deshacer.')) {
+    proyectoActual = {
+      tipoSistema: '', potenciaTotal: 0, factorPotencia: 0.95,
+      longitudPrincipal: 20, iccOrigen: null, poderCorteTermicas: 6, circuitos: []
+    };
     try {
       localStorage.removeItem(STORAGE_KEY);
+      localStorage.removeItem(CHECKLIST_770_KEY);
+      localStorage.removeItem(AMBIENTES_770_KEY);
     } catch (err) {
       console.warn('No se pudo limpiar el almacenamiento:', err);
     }
@@ -502,9 +686,28 @@ function configurarSistema() {
   const potenciaTotal = Number(document.getElementById('potenciaTotal').value);
   const factorPotencia = Number(document.getElementById('factorPotencia').value);
   const longitudPrincipal = Number(document.getElementById('longitudPrincipal').value) || 20;
-  
+  const iccOrigen = Number(document.getElementById('iccOrigen').value) || null;
+  const poderCorteTermicas = Number(document.getElementById('poderCorteTermicas').value) || 6;
+
   if (!tipoSistema || !potenciaTotal) {
     alert('⚠️ Completa los datos obligatorios');
+    return;
+  }
+
+  // CORREGIDO: el chequeo "!potenciaTotal" solo detecta 0/vacío, no
+  // valores negativos (-5 es "truthy" en JS). Sin esta validación se
+  // podía configurar una potencia negativa y obtener corrientes/cables
+  // negativos sin ningún aviso.
+  if (potenciaTotal <= 0) {
+    alert('⚠️ La potencia total contratada debe ser mayor a 0');
+    return;
+  }
+  if (longitudPrincipal <= 0) {
+    alert('⚠️ La longitud de la acometida principal debe ser mayor a 0');
+    return;
+  }
+  if (iccOrigen !== null && iccOrigen <= 0) {
+    alert('⚠️ La corriente de cortocircuito (Icc) debe ser mayor a 0, o dejar el campo vacío si no se conoce el dato');
     return;
   }
 
@@ -519,9 +722,12 @@ function configurarSistema() {
   proyectoActual.potenciaTotal = potenciaTotal;
   proyectoActual.factorPotencia = factorPotencia;
   proyectoActual.longitudPrincipal = longitudPrincipal;
+  proyectoActual.iccOrigen = iccOrigen;
+  proyectoActual.poderCorteTermicas = poderCorteTermicas;
   
   guardarProyecto();
   renderResumenTablero();
+  renderTablaCircuitos();
   alert('✓ Sistema configurado correctamente');
 }
 
@@ -532,6 +738,8 @@ function initApp() {
     document.getElementById('potenciaTotal').value = proyectoActual.potenciaTotal;
     document.getElementById('factorPotencia').value = proyectoActual.factorPotencia;
     document.getElementById('longitudPrincipal').value = proyectoActual.longitudPrincipal;
+    if (proyectoActual.iccOrigen) document.getElementById('iccOrigen').value = proyectoActual.iccOrigen;
+    if (proyectoActual.poderCorteTermicas) document.getElementById('poderCorteTermicas').value = proyectoActual.poderCorteTermicas;
     renderResumenTablero();
     renderTablaCircuitos();
   }
@@ -1092,15 +1300,24 @@ function calcularEstadoGeneralChecklist770() {
   const dps = document.getElementById('chk770_15_4_dps')?.checked;
   const releSobre = document.getElementById('chk770_15_5_relesobre')?.checked;
 
+  const icc = proyectoActual.iccOrigen;
+  const pdc = proyectoActual.poderCorteTermicas;
+  const pdcTexto = !icc
+    ? 'Falta dato de Icc'
+    : (pdc >= icc ? `OK (${pdc}kA ≥ ${icc}kA)` : `⚠️ Insuficiente (${pdc}kA < ${icc}kA)`);
+
   contenedor.innerHTML = `
     <div class="stats-grid">
       <div class="stat"><span class="label">770.14 verificado:</span><span class="value">${marcados}/${idsBooleanos.length}</span></div>
       <div class="stat"><span class="label">770.15.4 DPS:</span><span class="value">${dps ? 'Instalado' : 'Pendiente'}</span></div>
       <div class="stat"><span class="label">770.15.5 Sobretensión perm.:</span><span class="value">${releSobre ? 'Instalado' : 'Pendiente'}</span></div>
+      <div class="stat"><span class="label">770.15 Poder de corte (PdCcc≥I''k):</span><span class="value">${pdcTexto}</span></div>
     </div>
     <p style="opacity:0.75; font-size:12px; margin-top:10px; margin-bottom:0;">
       Checklist orientativo de cumplimiento de la Sección 770. No reemplaza la verificación
       final por un instalador electricista matriculado conforme a la edición vigente de la AEA 90364.
+      Nota: la verificación térmica k²S²≥I²t de cortocircuito (pág. 45) requiere datos de fabricante
+      y no está incluida en este checklist.
     </p>
   `;
 }
