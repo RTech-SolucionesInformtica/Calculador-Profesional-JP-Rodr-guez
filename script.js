@@ -2,6 +2,21 @@
 // CONFIGURACIÓN TÉCNICA E INGENIERÍA ELÉCTRICA
 // ============================================
 
+// NUEVO (AEA 770, pág. 45): valores de la constante "k" para la
+// verificación térmica de cortocircuito k²S² ≥ I²t, según el tipo de
+// aislación del conductor (conductores de cobre, tabla usual IEC
+// 60364-4-43 / 60364-5-54 tabla 43A, valores para "conductor aislado no
+// incluido en un cable" temperatura inicial 30°C):
+//   PVC (hasta 70°C)         -> k = 115
+//   XLPE / EPR (hasta 90°C)  -> k = 143
+// Se usa el valor conservador de conductor aislado individual (no cable
+// multipolar), que es el caso típico de instalación domiciliaria en
+// cañería embutida (IRAM NM 247-3 unipolar).
+const K_AISLACION = {
+  PVC: 115,
+  XLPE: 143
+};
+
 const STORAGE_KEY = 'aea_proyectos_v1';
 
 // TENSIONES CORREGIDAS SEGÚN REGLAMENTACIÓN AEA (ARGENTINA)
@@ -217,6 +232,8 @@ let proyectoActual = {
   longitudPrincipal: 20,
   iccOrigen: null,
   poderCorteTermicas: 6,
+  tipoAislacion: 'PVC',
+  i2tTermicas: null,
   circuitos: []
 };
 
@@ -322,15 +339,21 @@ function cargarProyecto() {
   return false;
 }
 
+// NUEVO (AEA 770, pág. 45): energía específica pasante máxima que admite
+// un conductor sin dañarse térmicamente ante un cortocircuito adiabático:
+//   k²S² ≥ I²t
+// donde S es la sección del conductor (mm²) y k depende de su aislación
+// (ver K_AISLACION). Devuelve el valor máximo admitido en A²·s.
+function calcularEnergiaMaximaConductor(mm2, tipoAislacion) {
+  const k = K_AISLACION[tipoAislacion] || K_AISLACION.PVC;
+  return Math.pow(k * mm2, 2);
+}
+
 // NUEVO (AEA 770, pág. 45, "Verificación de los cables a las
 // sobrecorrientes"): "Se debe cumplir PdCcc ≥ I''k", donde I''k es la
 // máxima corriente de cortocircuito en el punto donde está instalado el
 // dispositivo de protección (dato que debe dar la empresa distribuidora)
 // y PdCcc es el poder de corte del interruptor (dato de placa).
-// Esta es solo LA MITAD de la verificación de cortocircuito que pide la
-// guía: falta la verificación térmica k²S²≥I²t (pág. 45), que requiere
-// la energía específica pasante del fabricante de cada térmica — dato
-// que esta app no tiene, por eso no se calcula acá.
 function evaluarPoderDeCorte() {
   const contenedor = document.getElementById('resultadoPoderCorte');
   if (!contenedor) return;
@@ -353,12 +376,7 @@ function evaluarPoderDeCorte() {
     <span class="${cumple ? 'valido' : 'invalido'}">
       PdCcc (${pdc} kA) ${cumple ? '≥' : '<'} I''k (${icc} kA) —
       ${cumple ? '✓ el poder de corte declarado cubre la Icc informada' : '⚠️ el poder de corte declarado NO alcanza: elegir térmicas de mayor PdCcc'}
-    </span>
-    <p style="opacity:0.7; font-size:12px; margin-top:6px;">
-      Esta verificación cubre solo el poder de corte (770.15, pág. 45). Falta además la
-      verificación térmica k²S²≥I²t con la energía específica pasante de cada térmica
-      (dato de fabricante) — no calculada por esta app.
-    </p>`;
+    </span>`;
 }
 
 function renderResumenTablero() {
@@ -668,7 +686,8 @@ function limpiarTodo() {
   if (confirm('¿Eliminar todo el proyecto (sistema, circuitos, checklist y ambientes)? Esta acción no se puede deshacer.')) {
     proyectoActual = {
       tipoSistema: '', potenciaTotal: 0, factorPotencia: 0.95,
-      longitudPrincipal: 20, iccOrigen: null, poderCorteTermicas: 6, circuitos: []
+      longitudPrincipal: 20, iccOrigen: null, poderCorteTermicas: 6,
+      tipoAislacion: 'PVC', i2tTermicas: null, circuitos: []
     };
     try {
       localStorage.removeItem(STORAGE_KEY);
@@ -688,6 +707,8 @@ function configurarSistema() {
   const longitudPrincipal = Number(document.getElementById('longitudPrincipal').value) || 20;
   const iccOrigen = Number(document.getElementById('iccOrigen').value) || null;
   const poderCorteTermicas = Number(document.getElementById('poderCorteTermicas').value) || 6;
+  const tipoAislacion = document.getElementById('tipoAislacion').value || 'PVC';
+  const i2tTermicas = Number(document.getElementById('i2tTermicas').value) || null;
 
   if (!tipoSistema || !potenciaTotal) {
     alert('⚠️ Completa los datos obligatorios');
@@ -710,6 +731,10 @@ function configurarSistema() {
     alert('⚠️ La corriente de cortocircuito (Icc) debe ser mayor a 0, o dejar el campo vacío si no se conoce el dato');
     return;
   }
+  if (i2tTermicas !== null && i2tTermicas <= 0) {
+    alert('⚠️ La energía específica pasante (I²t) debe ser mayor a 0, o dejar el campo vacío si no se conoce el dato');
+    return;
+  }
 
   // CORREGIDO: un factor de potencia 0, negativo o mayor a 1 rompía
   // el cálculo (corriente infinita o negativa) sin ningún aviso.
@@ -724,10 +749,13 @@ function configurarSistema() {
   proyectoActual.longitudPrincipal = longitudPrincipal;
   proyectoActual.iccOrigen = iccOrigen;
   proyectoActual.poderCorteTermicas = poderCorteTermicas;
+  proyectoActual.tipoAislacion = tipoAislacion;
+  proyectoActual.i2tTermicas = i2tTermicas;
   
   guardarProyecto();
   renderResumenTablero();
   renderTablaCircuitos();
+  evaluarVerificacionTermica770(); // NUEVO: refresca la verificación térmica con los datos recién configurados
   alert('✓ Sistema configurado correctamente');
 }
 
@@ -740,6 +768,8 @@ function initApp() {
     document.getElementById('longitudPrincipal').value = proyectoActual.longitudPrincipal;
     if (proyectoActual.iccOrigen) document.getElementById('iccOrigen').value = proyectoActual.iccOrigen;
     if (proyectoActual.poderCorteTermicas) document.getElementById('poderCorteTermicas').value = proyectoActual.poderCorteTermicas;
+    if (proyectoActual.tipoAislacion) document.getElementById('tipoAislacion').value = proyectoActual.tipoAislacion;
+    if (proyectoActual.i2tTermicas) document.getElementById('i2tTermicas').value = proyectoActual.i2tTermicas;
     renderResumenTablero();
     renderTablaCircuitos();
   }
@@ -1256,6 +1286,109 @@ function actualizarGradoElectrificacion() {
   `;
 }
 
+// NUEVO (AEA 770, pág. 45, "Verificación térmica de los cables al
+// cortocircuito"): k²S² ≥ I²t. Compara la energía específica pasante que
+// admite cada conductor (según su sección y tipo de aislación) contra la
+// energía específica pasante (I²t) que deja pasar la térmica instalada,
+// dato que debe tomarse de la curva del fabricante A LA MISMA Icc
+// declarada en "Corriente de cortocircuito presunta en el origen".
+//
+// LIMITACIÓN DECLARADA: al igual que la verificación de poder de corte,
+// esta app usa un único valor de I²t para toda la instalación (no permite
+// declarar un valor distinto por térmica/circuito), y no reduce la Icc
+// aguas abajo por la impedancia de cada tramo — usa el valor en el
+// origen para todos los conductores, que es la hipótesis más conservadora
+// (del lado seguro) pero no calcula la Icc real en cada punto.
+function evaluarVerificacionTermica770() {
+  const contenedor = document.getElementById('resultadoVerificacionTermica770');
+  if (!contenedor) return;
+
+  if (!proyectoActual.tipoSistema) {
+    contenedor.innerHTML = 'Configurá el sistema para evaluar este punto.';
+    return;
+  }
+
+  const i2t = proyectoActual.i2tTermicas;
+  if (!i2t) {
+    contenedor.innerHTML = `
+      <span class="invalido">
+        ⚠️ Falta el dato de energía específica pasante (I²t) de las térmicas, tomado de la
+        curva del fabricante a la Icc declarada. Sin ese valor no se puede verificar
+        k²S² ≥ I²t (AEA 770, 770.15, pág. 45).
+      </span>`;
+    return;
+  }
+
+  const tipoAislacion = proyectoActual.tipoAislacion || 'PVC';
+  let items = '';
+  let hayProblemas = false;
+  let hayNoVerificables = false;
+
+  // Conductor principal (acometida)
+  const corrientePrincipal = calcularCorriente(
+    proyectoActual.potenciaTotal, proyectoActual.tipoSistema, proyectoActual.factorPotencia
+  );
+  const conductorPrincipal = encontrarConductor(corrientePrincipal);
+  if (conductorPrincipal.mm2 === '>70') {
+    hayNoVerificables = true;
+    items += `
+      <div class="checklist-result-row">
+        Acometida principal: sección fuera de tabla — no verificable con esta app.
+      </div>`;
+  } else {
+    const permitida = calcularEnergiaMaximaConductor(conductorPrincipal.mm2, tipoAislacion);
+    const cumple = permitida >= i2t;
+    if (!cumple) hayProblemas = true;
+    items += `
+      <div class="checklist-result-row ${cumple ? 'valido' : 'invalido'}">
+        Acometida principal (${conductorPrincipal.mm2} mm² · ${tipoAislacion}):
+        k²S² = ${Math.round(permitida).toLocaleString('es-AR')} A²s
+        ${cumple ? '≥' : '<'} I²t (${Number(i2t).toLocaleString('es-AR')} A²s)
+        ${cumple ? ' ✓' : ' ⚠️ conductor insuficiente para el cortocircuito'}
+      </div>`;
+  }
+
+  // Cada circuito agregado
+  proyectoActual.circuitos.forEach(c => {
+    if (c.conductor === '>70') {
+      hayNoVerificables = true;
+      items += `
+        <div class="checklist-result-row">
+          ${escaparHTML(c.ambiente)}: sección fuera de tabla — no verificable con esta app.
+        </div>`;
+      return;
+    }
+    const permitida = calcularEnergiaMaximaConductor(c.conductor, tipoAislacion);
+    const cumple = permitida >= i2t;
+    if (!cumple) hayProblemas = true;
+    items += `
+      <div class="checklist-result-row ${cumple ? 'valido' : 'invalido'}">
+        ${escaparHTML(c.ambiente)} (${c.conductor} mm² · ${tipoAislacion}):
+        k²S² = ${Math.round(permitida).toLocaleString('es-AR')} A²s
+        ${cumple ? '≥' : '<'} I²t (${Number(i2t).toLocaleString('es-AR')} A²s)
+        ${cumple ? ' ✓' : ' ⚠️ conductor insuficiente para el cortocircuito'}
+      </div>`;
+  });
+
+  let resumen;
+  if (hayProblemas) {
+    resumen = '<div class="invalido" style="margin-top:8px;">⚠️ Hay conductores cuya sección no soporta térmicamente la I²t declarada — aumentar sección o instalar una térmica limitadora.</div>';
+  } else {
+    resumen = '<div class="valido" style="margin-top:8px;">✓ Todos los conductores verificables cumplen k²S² ≥ I²t.</div>';
+  }
+  if (hayNoVerificables) {
+    resumen += '<div style="opacity:0.7; font-size:12px; margin-top:4px;">Hay conductores fuera de la tabla simplificada de esta app; verificarlos manualmente.</div>';
+  }
+
+  contenedor.innerHTML = items + resumen + `
+    <p style="opacity:0.7; font-size:12px; margin-top:8px;">
+      El valor de I²t debe corresponder a la curva del fabricante A LA MISMA Icc declarada
+      en "Corriente de cortocircuito presunta en el origen" (${proyectoActual.iccOrigen ? proyectoActual.iccOrigen + ' kA' : 'sin dato'}).
+      Se usa el mismo I²t para toda la instalación y la Icc de origen para todos los tramos
+      (hipótesis conservadora, no calcula la Icc real aguas abajo de cada protección).
+    </p>`;
+}
+
 function actualizarResumenAuto77015() {
   const contenedor = document.getElementById('resultadoAuto77015');
   if (!contenedor) return;
@@ -1306,18 +1439,25 @@ function calcularEstadoGeneralChecklist770() {
     ? 'Falta dato de Icc'
     : (pdc >= icc ? `OK (${pdc}kA ≥ ${icc}kA)` : `⚠️ Insuficiente (${pdc}kA < ${icc}kA)`);
 
+  // NUEVO: estado resumido de la verificación térmica k²S²≥I²t para el stat general
+  const i2t = proyectoActual.i2tTermicas;
+  const termicaTexto = !i2t
+    ? 'Falta dato de I²t'
+    : document.getElementById('resultadoVerificacionTermica770')?.querySelector('.invalido')
+      ? '⚠️ Revisar sección'
+      : 'OK';
+
   contenedor.innerHTML = `
     <div class="stats-grid">
       <div class="stat"><span class="label">770.14 verificado:</span><span class="value">${marcados}/${idsBooleanos.length}</span></div>
       <div class="stat"><span class="label">770.15.4 DPS:</span><span class="value">${dps ? 'Instalado' : 'Pendiente'}</span></div>
       <div class="stat"><span class="label">770.15.5 Sobretensión perm.:</span><span class="value">${releSobre ? 'Instalado' : 'Pendiente'}</span></div>
       <div class="stat"><span class="label">770.15 Poder de corte (PdCcc≥I''k):</span><span class="value">${pdcTexto}</span></div>
+      <div class="stat"><span class="label">770.15 Verif. térmica (k²S²≥I²t):</span><span class="value">${termicaTexto}</span></div>
     </div>
     <p style="opacity:0.75; font-size:12px; margin-top:10px; margin-bottom:0;">
       Checklist orientativo de cumplimiento de la Sección 770. No reemplaza la verificación
       final por un instalador electricista matriculado conforme a la edición vigente de la AEA 90364.
-      Nota: la verificación térmica k²S²≥I²t de cortocircuito (pág. 45) requiere datos de fabricante
-      y no está incluida en este checklist.
     </p>
   `;
 }
@@ -1326,6 +1466,7 @@ function actualizarChecklist770() {
   actualizarGradoElectrificacion();
   evaluarResistenciaTierra();
   actualizarResumenAuto77015();
+  evaluarVerificacionTermica770(); // NUEVO: k²S² ≥ I²t junto al resto de 770.15
   actualizarResumenPuntosUtilizacion770(); // NUEVO: refresca el resumen de 770.7.III junto con el resto
   calcularEstadoGeneralChecklist770();
   guardarChecklist770();
@@ -1406,6 +1547,7 @@ function initChecklist770() {
     const observer = new MutationObserver(() => {
       actualizarGradoElectrificacion();
       actualizarResumenAuto77015();
+      evaluarVerificacionTermica770(); // NUEVO: recalcula también al agregar/eliminar circuitos
     });
     observer.observe(tbody, { childList: true });
   }
