@@ -660,3 +660,319 @@ if (document.readyState === 'loading') {
     console.error('Error al iniciar la app:', err);
   }
 }
+
+// ============================================================
+// NUEVO BLOQUE ADITIVO — CHECKLIST NORMATIVO AEA 90364-7-770
+// (Sección 770 completa: 770.14 y 770.15).
+//
+// Este bloque NO modifica ninguna función, variable ni
+// configuración existente arriba: solo lee proyectoActual y
+// CONDUCTORES_AEA (ya declarados) para evaluar automáticamente
+// lo que puede derivarse de los circuitos cargados, y agrega su
+// propio listener de inicio en paralelo a initApp(), para que si
+// este bloque fallara por algún motivo, el resto de la app
+// (configuración, circuitos, exportación, efectos) siga
+// funcionando exactamente igual.
+//
+// Persiste en su propia clave de localStorage, separada de
+// STORAGE_KEY ('aea_proyectos_v1'), así que no interfiere con
+// guardarProyecto()/cargarProyecto().
+// ============================================================
+const CHECKLIST_770_KEY = 'aea_checklist770_v1';
+
+const CAMPOS_CHECKLIST_770 = [
+  'inputSupCubierta',
+  'inputSupSemicubierta',
+  'chk770_14_1_diferencial',
+  'chk770_14_2_aislacion',
+  'chk770_14_2_tomas',
+  'chk770_14_3_corte',
+  'chk770_14_3_continuidad',
+  'selEsquemaTierra',
+  'inputResistenciaTierra',
+  'chk770_15_4_dps',
+  'selTipoDPS',
+  'chk770_15_5_relesobre'
+];
+
+function guardarChecklist770() {
+  const data = {};
+  CAMPOS_CHECKLIST_770.forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    data[id] = (el.type === 'checkbox') ? el.checked : el.value;
+  });
+  try {
+    localStorage.setItem(CHECKLIST_770_KEY, JSON.stringify(data));
+  } catch (err) {
+    console.warn('No se pudo guardar el checklist 770:', err);
+  }
+}
+
+function cargarChecklist770() {
+  let data = {};
+  try {
+    const raw = localStorage.getItem(CHECKLIST_770_KEY);
+    if (raw) data = JSON.parse(raw);
+  } catch (err) {
+    console.warn('No se pudo cargar el checklist 770 guardado:', err);
+  }
+  CAMPOS_CHECKLIST_770.forEach(id => {
+    const el = document.getElementById(id);
+    if (!el || !(id in data)) return;
+    if (el.type === 'checkbox') el.checked = !!data[id];
+    else el.value = data[id];
+  });
+}
+
+// Busca en la tabla de conductores ya existente (CONDUCTORES_AEA) la
+// corriente admisible (Iz) que corresponde a la térmica (In) asignada
+// al circuito, para verificar la coordinación Ib ≤ In ≤ Iz de 770.15.3.
+function obtenerIzParaDisyuntor(disyuntor) {
+  const fila = CONDUCTORES_AEA.find(c => c.disyuntor === disyuntor);
+  return fila ? fila.amperios : null;
+}
+
+function evaluarResistenciaTierra() {
+  const contenedor = document.getElementById('resultadoResistenciaTierra');
+  if (!contenedor) return;
+  const inputEl = document.getElementById('inputResistenciaTierra');
+  const resistencia = Number(inputEl ? inputEl.value : NaN);
+  if (!resistencia) {
+    contenedor.innerHTML = '';
+    return;
+  }
+  // Verificación orientativa Ra × IΔn ≤ 24V (criterio habitual para locales
+  // húmedos/exteriores) con el diferencial de 30mA típico. Es un criterio
+  // de referencia y no reemplaza el análisis normativo completo de tensión
+  // de contacto límite aplicable a cada caso.
+  const tensionContacto = resistencia * 0.03;
+  const cumple = tensionContacto <= 24;
+  contenedor.innerHTML = `
+    <span class="${cumple ? 'valido' : 'invalido'}">
+      Ra × IΔn ≈ ${tensionContacto.toFixed(1)} V con ID de 30mA
+      (${cumple ? 'dentro del límite orientativo de 24V' : 'supera el límite orientativo de 24V — revisar jabalina/electrodo'})
+    </span>`;
+}
+
+// Tabla 770.7.I - Resumen de los grados de electrificación, según la
+// superficie límite de aplicación (superficie cubierta + 50% de la semicubierta).
+function calcularSuperficieLimite(cubierta, semicubierta) {
+  return cubierta + 0.5 * semicubierta;
+}
+
+function determinarGradoElectrificacion(superficieLimite) {
+  if (superficieLimite <= 60) return 'Mínimo';
+  if (superficieLimite <= 130) return 'Medio';
+  if (superficieLimite <= 200) return 'Elevado';
+  return 'Superior';
+}
+
+// Tabla 770.7.II - Resumen de los números mínimos de circuitos por grado.
+const CIRCUITOS_MINIMOS_770_7 = {
+  'Mínimo':   { total: 2, texto: '1 circuito de Iluminación de uso general (IUG) + 1 de Tomacorrientes de uso general (TUG)' },
+  'Medio':    { total: 3, texto: '3 circuitos de uso general: 2 IUG + 1 TUG, o bien 1 IUG + 2 TUG' },
+  'Elevado':  { total: 5, texto: '5 circuitos de uso general: 2 IUG + 3 TUG, o bien 3 IUG + 2 TUG' },
+  'Superior': { total: 6, texto: '6 circuitos: 2 IUG + 3 TUG + 1 de libre elección, o bien 3 IUG + 2 TUG + 1 de libre elección' }
+};
+
+// Tabla 770.8.II - Coeficientes de simultaneidad según el grado de electrificación.
+const COEFICIENTE_SIMULTANEIDAD_770_8 = {
+  'Mínimo': 1,
+  'Medio': 0.8,
+  'Elevado': 0.7,
+  'Superior': 0.6
+};
+
+function actualizarGradoElectrificacion() {
+  const contenedor = document.getElementById('resultadoGradoElectrificacion');
+  if (!contenedor) return;
+
+  const inputCubierta = document.getElementById('inputSupCubierta');
+  const inputSemicubierta = document.getElementById('inputSupSemicubierta');
+  const cubierta = Number(inputCubierta ? inputCubierta.value : NaN) || 0;
+  const semicubierta = Number(inputSemicubierta ? inputSemicubierta.value : NaN) || 0;
+
+  if (!cubierta) {
+    contenedor.innerHTML = 'Ingresá la superficie cubierta para determinar el grado de electrificación (770.7).';
+    return;
+  }
+
+  const superficieLimite = calcularSuperficieLimite(cubierta, semicubierta);
+  const grado = determinarGradoElectrificacion(superficieLimite);
+  const minimos = CIRCUITOS_MINIMOS_770_7[grado];
+  const coefSimult = COEFICIENTE_SIMULTANEIDAD_770_8[grado];
+
+  // Cuenta, sin modificar la lógica original, los circuitos de uso general
+  // (Iluminación / Tomacorriente) que ya se cargaron en el panel de circuitos.
+  const iug = proyectoActual.circuitos.filter(c => c.tipoCircuito === 'Iluminación').length;
+  const tug = proyectoActual.circuitos.filter(c => c.tipoCircuito === 'Tomacorriente').length;
+  const totalGeneral = iug + tug;
+  const cumpleMinimo = totalGeneral >= minimos.total;
+
+  contenedor.innerHTML = `
+    <div class="stats-grid">
+      <div class="stat"><span class="label">Superficie límite de aplicación:</span><span class="value">${superficieLimite.toFixed(1)} m²</span></div>
+      <div class="stat"><span class="label">Grado de electrificación:</span><span class="value">${grado}</span></div>
+      <div class="stat"><span class="label">Coef. simultaneidad (770.8.2):</span><span class="value">${coefSimult}</span></div>
+    </div>
+    <p style="margin:10px 0 4px 0;"><strong>Circuitos mínimos exigidos (770.7.5):</strong> ${minimos.texto}</p>
+    <p class="${cumpleMinimo ? 'valido' : 'invalido'}" style="margin:4px 0;">
+      Circuitos de uso general ya cargados arriba: ${totalGeneral} (IUG: ${iug} · TUG: ${tug})
+      — ${cumpleMinimo ? '✓ cumple la cantidad mínima exigida' : `⚠️ faltan circuitos para llegar al mínimo de ${minimos.total}`}
+    </p>
+    <p style="opacity:0.7; font-size:12px; margin-top:6px;">
+      Nota: la cantidad y ubicación de los puntos mínimos de utilización por ambiente (bocas de
+      iluminación/tomacorrientes según la Tabla 770.7.III) debe verificarse aparte, ambiente por ambiente.
+    </p>
+  `;
+}
+
+function actualizarResumenAuto77015() {
+  const contenedor = document.getElementById('resultadoAuto77015');
+  if (!contenedor) return;
+
+  if (!proyectoActual.tipoSistema || proyectoActual.circuitos.length === 0) {
+    contenedor.innerHTML = 'Configurá el sistema y agregá circuitos para evaluar este punto automáticamente.';
+    return;
+  }
+
+  let items = '';
+  let hayProblemas = false;
+
+  proyectoActual.circuitos.forEach(c => {
+    const iz = obtenerIzParaDisyuntor(c.disyuntor);
+    const fueraDeTabla = c.conductor === '>70';
+    const coordinaOk = !fueraDeTabla && iz !== null && c.corriente <= c.disyuntor && c.disyuntor <= iz;
+    if (!coordinaOk) hayProblemas = true;
+    items += `
+      <div class="checklist-result-row ${coordinaOk ? 'valido' : 'invalido'}">
+        ${escaparHTML(c.ambiente)} (${escaparHTML(c.tipoCircuito)}): Ib=${c.corriente}A ·
+        In=${fueraDeTabla ? '-' : c.disyuntor + 'A'} ·
+        Iz=${iz !== null ? iz + 'A' : '-'}
+        ${coordinaOk ? ' ✓ Coordinación Ib≤In≤Iz cumplida' : ' ⚠️ Revisar coordinación cable/protección'}
+      </div>`;
+  });
+
+  contenedor.innerHTML = items + (hayProblemas
+    ? '<div class="invalido" style="margin-top:8px;">⚠️ Hay circuitos que no cumplen la coordinación cable-protección exigida por 770.15.2/770.15.3.</div>'
+    : '<div class="valido" style="margin-top:8px;">✓ Todos los circuitos cumplen la coordinación cable-protección (770.15.1 a 770.15.3).</div>');
+}
+
+function calcularEstadoGeneralChecklist770() {
+  const contenedor = document.getElementById('estadoGeneralChecklist770');
+  if (!contenedor) return;
+
+  const idsBooleanos = [
+    'chk770_14_1_diferencial', 'chk770_14_2_aislacion', 'chk770_14_2_tomas',
+    'chk770_14_3_corte', 'chk770_14_3_continuidad'
+  ];
+  const marcados = idsBooleanos.filter(id => document.getElementById(id)?.checked).length;
+
+  const dps = document.getElementById('chk770_15_4_dps')?.checked;
+  const releSobre = document.getElementById('chk770_15_5_relesobre')?.checked;
+
+  contenedor.innerHTML = `
+    <div class="stats-grid">
+      <div class="stat"><span class="label">770.14 verificado:</span><span class="value">${marcados}/${idsBooleanos.length}</span></div>
+      <div class="stat"><span class="label">770.15.4 DPS:</span><span class="value">${dps ? 'Instalado' : 'Pendiente'}</span></div>
+      <div class="stat"><span class="label">770.15.5 Sobretensión perm.:</span><span class="value">${releSobre ? 'Instalado' : 'Pendiente'}</span></div>
+    </div>
+    <p style="opacity:0.75; font-size:12px; margin-top:10px; margin-bottom:0;">
+      Checklist orientativo de cumplimiento de la Sección 770. No reemplaza la verificación
+      final por un instalador electricista matriculado conforme a la edición vigente de la AEA 90364.
+    </p>
+  `;
+}
+
+function actualizarChecklist770() {
+  actualizarGradoElectrificacion();
+  evaluarResistenciaTierra();
+  actualizarResumenAuto77015();
+  calcularEstadoGeneralChecklist770();
+  guardarChecklist770();
+}
+
+function reiniciarChecklist770() {
+  if (!confirm('¿Reiniciar el checklist de la Sección 770? Esta acción no se puede deshacer.')) return;
+  CAMPOS_CHECKLIST_770.forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    if (el.type === 'checkbox') el.checked = false;
+    else if (el.tagName === 'SELECT') el.selectedIndex = 0;
+    else el.value = '';
+  });
+  try {
+    localStorage.removeItem(CHECKLIST_770_KEY);
+  } catch (err) {
+    console.warn('No se pudo reiniciar el checklist 770:', err);
+  }
+  actualizarChecklist770();
+}
+
+function initChecklist770() {
+  cargarChecklist770();
+  actualizarChecklist770();
+
+  const btnActualizar = document.getElementById('btnActualizarChecklist770');
+  if (btnActualizar) btnActualizar.addEventListener('click', actualizarChecklist770);
+
+  const btnReiniciar = document.getElementById('btnReiniciarChecklist770');
+  if (btnReiniciar) btnReiniciar.addEventListener('click', reiniciarChecklist770);
+
+  const inputResistencia = document.getElementById('inputResistenciaTierra');
+  if (inputResistencia) {
+    inputResistencia.addEventListener('input', () => {
+      evaluarResistenciaTierra();
+      guardarChecklist770();
+    });
+  }
+
+  const inputCubierta = document.getElementById('inputSupCubierta');
+  const inputSemicubierta = document.getElementById('inputSupSemicubierta');
+  [inputCubierta, inputSemicubierta].forEach(el => {
+    if (!el) return;
+    el.addEventListener('input', () => {
+      actualizarGradoElectrificacion();
+      guardarChecklist770();
+    });
+  });
+
+  CAMPOS_CHECKLIST_770.forEach(id => {
+    const el = document.getElementById(id);
+    if (!el || el === inputResistencia || el === inputCubierta || el === inputSemicubierta) return;
+    el.addEventListener('change', () => {
+      guardarChecklist770();
+      calcularEstadoGeneralChecklist770();
+    });
+  });
+
+  // Observa la tabla de circuitos ya existente para refrescar 770.7 y
+  // 770.15.1-3 automáticamente cuando se agrega/elimina un circuito, sin
+  // tener que tocar ni envolver las funciones originales
+  // agregarCircuito()/renderTablaCircuitos().
+  const tbody = document.querySelector('#circuitsTable tbody');
+  if (tbody && window.MutationObserver) {
+    const observer = new MutationObserver(() => {
+      actualizarGradoElectrificacion();
+      actualizarResumenAuto77015();
+    });
+    observer.observe(tbody, { childList: true });
+  }
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', () => {
+    try {
+      initChecklist770();
+    } catch (err) {
+      console.error('Error al iniciar el checklist 770:', err);
+    }
+  });
+} else {
+  try {
+    initChecklist770();
+  } catch (err) {
+    console.error('Error al iniciar el checklist 770:', err);
+  }
+}

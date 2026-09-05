@@ -673,4 +673,64 @@ td {
   }
 
   .footer { display: none; }
+
+  .checklist-panel { display: none !important; }
+}
+
+/* ============================================
+   NUEVO BLOQUE ADITIVO — CHECKLIST AEA 90364-7-770
+   No modifica ninguna regla existente; solo agrega
+   estilos para el panel de checklist normativo.
+   ============================================ */
+.checklist-panel {
+  grid-column: 1 / -1;
+}
+
+.checklist-intro {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin: 0 0 4px 0;
+}
+
+.checklist-group {
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  padding: 16px;
+  background: rgba(255, 234, 0, 0.02);
+  margin-bottom: 16px;
+}
+
+.checklist-group h3 {
+  margin: 0 0 12px 0;
+  font-size: 13px;
+  color: var(--primary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.checklist-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 13px;
+  margin-bottom: 10px;
+  cursor: pointer;
+}
+
+.checklist-item input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  margin-top: 1px;
+  accent-color: var(--primary);
+}
+
+.checklist-result {
+  font-size: 13px;
+  margin-top: 8px;
+}
+
+.checklist-result-row {
+  padding: 6px 0;
+  border-bottom: 1px dashed rgba(255, 234, 0, 0.08);
 }

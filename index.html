@@ -178,6 +178,125 @@
       antes de su ejecución, conforme a la reglamentación AEA 90364 vigente.
     </div>
   </section>
+
+  <!-- ============================================
+       NUEVO PANEL — agregado de forma aditiva, no
+       reemplaza ni modifica ninguno de los paneles
+       anteriores (config-panel, circuits-panel,
+       results-panel). Guarda sus datos en su propia
+       clave de localStorage, separada del proyecto.
+       ============================================ -->
+  <section class="checklist-panel panel" id="checklist770Panel">
+    <h2>✅ Checklist AEA 90364-7-770 — Sección 770 (Viviendas)</h2>
+    <p class="checklist-intro">
+      Cumplimiento de la Sección 770. Los puntos 770.15.1 a 770.15.3 se evalúan
+      automáticamente a partir de los circuitos ya cargados arriba. El resto requiere
+      que confirmes la condición real de la instalación en obra.
+    </p>
+
+    <div class="checklist-group">
+      <h3>770.7 — Grado de electrificación (según superficie)</h3>
+      <div class="form-group">
+        <label for="inputSupCubierta">Superficie cubierta (m²)</label>
+        <input type="number" id="inputSupCubierta" step="0.1" inputmode="decimal" placeholder="Ej: 85">
+      </div>
+      <div class="form-group">
+        <label for="inputSupSemicubierta">Superficie semicubierta (m²)</label>
+        <input type="number" id="inputSupSemicubierta" step="0.1" inputmode="decimal" placeholder="Ej: 12">
+        <small style="opacity:0.7">Superficie límite de aplicación = cubierta + 50% de la semicubierta (770.7.1.1).</small>
+      </div>
+      <div id="resultadoGradoElectrificacion" class="checklist-result"></div>
+    </div>
+
+    <div class="checklist-group">
+      <h3>770.14.1 — Protección simultánea contra contactos directos e indirectos</h3>
+      <label class="checklist-item">
+        <input type="checkbox" id="chk770_14_1_diferencial">
+        Interruptor diferencial (ID) de 30 mA instalado en el tablero principal, aguas arriba de las térmicas
+      </label>
+    </div>
+
+    <div class="checklist-group">
+      <h3>770.14.2 — Protección contra contactos directos</h3>
+      <label class="checklist-item">
+        <input type="checkbox" id="chk770_14_2_aislacion">
+        Partes activas cubiertas por aislación o envolventes (grado de protección IP2X mínimo)
+      </label>
+      <label class="checklist-item">
+        <input type="checkbox" id="chk770_14_2_tomas">
+        Tomacorrientes con obturadores / partes activas no accesibles al tacto directo
+      </label>
+    </div>
+
+    <div class="checklist-group">
+      <h3>770.14.3 — Protección contra contactos indirectos</h3>
+      <label class="checklist-item">
+        <input type="checkbox" id="chk770_14_3_corte">
+        Corte automático de la alimentación coordinado con el esquema de puesta a tierra (TT + diferencial)
+      </label>
+      <label class="checklist-item">
+        <input type="checkbox" id="chk770_14_3_continuidad">
+        Continuidad eléctrica verificada del conductor de protección (PE) en todos los circuitos
+      </label>
+    </div>
+
+    <div class="checklist-group">
+      <h3>770.14.4 — Características del sistema de puesta a tierra</h3>
+      <div class="form-group">
+        <label for="selEsquemaTierra">Esquema de puesta a tierra</label>
+        <select id="selEsquemaTierra">
+          <option value="TT">TT (habitual en viviendas AR)</option>
+          <option value="TN-S">TN-S</option>
+          <option value="TN-C-S">TN-C-S</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="inputResistenciaTierra">Resistencia de la toma de tierra medida (Ω)</label>
+        <input type="number" id="inputResistenciaTierra" step="0.1" inputmode="decimal" placeholder="Ej: 15">
+        <small style="opacity:0.7">Referencia orientativa con ID de 30mA (Ra × IΔn ≤ 24V para locales húmedos/exteriores). No reemplaza el análisis normativo completo de tensión de contacto límite.</small>
+      </div>
+      <div id="resultadoResistenciaTierra" class="checklist-result"></div>
+    </div>
+
+    <div class="checklist-group">
+      <h3>770.15.1 a 770.15.3 — Elección y coordinación de conductores y protecciones</h3>
+      <div id="resultadoAuto77015" class="checklist-result">
+        Configurá el sistema y agregá circuitos para evaluar este punto automáticamente.
+      </div>
+    </div>
+
+    <div class="checklist-group">
+      <h3>770.15.4 — Protección contra sobretensiones transitorias</h3>
+      <label class="checklist-item">
+        <input type="checkbox" id="chk770_15_4_dps">
+        Dispositivo de protección contra sobretensiones (DPS/SPD) instalado
+      </label>
+      <div class="form-group">
+        <label for="selTipoDPS">Tipo de DPS (si aplica)</label>
+        <select id="selTipoDPS">
+          <option value="">-- No instalado / no aplica --</option>
+          <option value="I">Tipo 1 (riesgo de descarga atmosférica directa)</option>
+          <option value="II">Tipo 2 (protección general del tablero — caso habitual en viviendas)</option>
+          <option value="III">Tipo 3 (protección fina cerca de equipos sensibles)</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="checklist-group">
+      <h3>770.15.5 — Protección contra sobretensiones permanentes</h3>
+      <label class="checklist-item">
+        <input type="checkbox" id="chk770_15_5_relesobre">
+        Relé/protector de tensión (sobre y subtensión) instalado, o red verificada como estable
+      </label>
+    </div>
+
+    <div class="form-actions" style="margin-top: 8px;">
+      <button type="button" id="btnActualizarChecklist770" class="btn btn-primary">🔄 Actualizar checklist</button>
+      <button type="button" id="btnReiniciarChecklist770" class="btn btn-secondary">🗑 Reiniciar checklist</button>
+    </div>
+
+    <div id="estadoGeneralChecklist770" class="summary-box" style="margin-top:16px;"></div>
+  </section>
 </main>
 
 <footer class="footer">
