@@ -618,6 +618,20 @@ function agregarCircuito(event) {
     corriente,
     conductor: conductor.mm2,
     disyuntor: conductor.disyuntor,
+    // CORREGIDO (bug de coordinación detectado en revisión): se guarda el Iz
+    // (corriente admisible del cable) que efectivamente se usó al ELEGIR
+    // este conductor/térmica, en vez de tener que volver a buscarlo después
+    // por sección (mm2) solamente. La tabla CONDUCTORES_AEA tiene más de
+    // una fila para la misma sección con distinto Iz/térmica (ej. 2,5mm²
+    // -> 16A y 20A; 10mm² -> 50A y 63A, según el techo del tipo de
+    // circuito). Antes, actualizarResumenAuto77015() recalculaba el Iz con
+    // obtenerIzAgrupado(mm2), que con esas secciones duplicadas devolvía
+    // SIEMPRE la primera fila (el Iz más bajo) sin importar cuál se usó de
+    // verdad — por ejemplo, un circuito de 10mm²/63A terminaba comparado
+    // contra un Iz de 50A y se marcaba "no cumple coordinación" (In=63 >
+    // Iz=50) aunque el conductor elegido fuera correcto. Ahora se guarda el
+    // Iz real acá, en el momento en que se conoce sin ambigüedad.
+    iz: conductor.amperios,
     seccionPE,
     caidaV,
     caidaPorcentaje,
@@ -1583,7 +1597,16 @@ function actualizarResumenAuto77015() {
 
   proyectoActual.circuitos.forEach(c => {
     const fueraDeTabla = c.conductor === '>70';
-    const iz = fueraDeTabla ? null : obtenerIzAgrupado(c.conductor, c.circuitosPorCano || 1);
+    // CORREGIDO: se usa el Iz guardado en el propio circuito (c.iz), que es
+    // el que realmente se usó al elegir el conductor/térmica, en vez de
+    // volver a derivarlo por sección con obtenerIzAgrupado(mm2) — esa
+    // función no distingue entre las dos filas que existen para una misma
+    // sección con distinto Iz/técnica (ej. 2,5mm² 16A/20A, 10mm² 50A/63A) y
+    // siempre devolvía la primera (la de menor Iz), dando falsos "no
+    // cumple" en circuitos bien dimensionados. c.iz puede faltar en
+    // proyectos guardados en localStorage ANTES de este fix: para esos
+    // casos se mantiene obtenerIzAgrupado() como respaldo, igual que antes.
+    const iz = fueraDeTabla ? null : (c.iz ?? obtenerIzAgrupado(c.conductor, c.circuitosPorCano || 1));
     const coordinaOk = !fueraDeTabla && iz !== null && c.corriente <= c.disyuntor && c.disyuntor <= iz;
     if (!coordinaOk) hayProblemas = true;
     items += `
