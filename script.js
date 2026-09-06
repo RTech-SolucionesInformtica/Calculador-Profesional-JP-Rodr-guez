@@ -423,6 +423,9 @@ function evaluarPoderDeCorte() {
         provisto por la empresa distribuidora, no se puede verificar que las térmicas elegidas
         soporten el cortocircuito (AEA 770, 770.15, pág. 45: PdCcc ≥ I''k).
       </span>`;
+    proyectoActual.estado770 = proyectoActual.estado770 || {};
+    proyectoActual.estado770.poderCorteOk = null;
+    proyectoActual.estado770.poderCorteFaltaDato = true;
     return;
   }
 
@@ -432,6 +435,11 @@ function evaluarPoderDeCorte() {
       PdCcc (${pdc} kA) ${cumple ? '≥' : '<'} I''k (${icc} kA) —
       ${cumple ? '✓ el poder de corte declarado cubre la Icc informada' : '⚠️ el poder de corte declarado NO alcanza: elegir térmicas de mayor PdCcc'}
     </span>`;
+
+  // NUEVO: estado guardado para el semáforo consolidado.
+  proyectoActual.estado770 = proyectoActual.estado770 || {};
+  proyectoActual.estado770.poderCorteOk = cumple;
+  proyectoActual.estado770.poderCorteFaltaDato = false;
 }
 
 function renderResumenTablero() {
@@ -609,6 +617,7 @@ function renderTablaCircuitos() {
   if (proyectoActual.circuitos.length === 0) {
     emptyState.style.display = 'block';
     resumenBox.innerHTML = '<p style="text-align:center;opacity:0.7">Agrega circuitos para ver el resumen</p>';
+    calcularSemaforoGeneral(); // NUEVO: limpia el semáforo si no quedan circuitos
     return;
   }
   
@@ -695,6 +704,11 @@ function renderResumenTotal() {
       </div>
     </div>
   `;
+
+  // NUEVO: cada vez que cambia la lista de circuitos (agregar/borrar), se
+  // refresca también el semáforo consolidado, aunque no haya cambiado
+  // ningún dato de la sección 770 (Icc, I²t, etc.).
+  calcularSemaforoGeneral();
 }
 
 // NUEVO: arma el encabezado del informe (fecha + resumen del sistema
@@ -807,6 +821,12 @@ function configurarSistema() {
   renderResumenTablero();
   renderTablaCircuitos();
   evaluarVerificacionTermica770(); // NUEVO: refresca la verificación térmica con los datos recién configurados
+  // NUEVO: se recalcula el semáforo DESPUÉS de evaluarVerificacionTermica770().
+  // renderTablaCircuitos() (arriba) ya dispara calcularSemaforoGeneral() una vez,
+  // pero en ese momento el I²t/Icc recién configurados todavía no se habían
+  // vuelto a evaluar — sin esta segunda llamada el semáforo se quedaría un paso
+  // desactualizado hasta el próximo cambio en la tabla de circuitos.
+  calcularSemaforoGeneral();
   alert('✓ Sistema configurado correctamente');
 }
 
@@ -1377,6 +1397,9 @@ function evaluarVerificacionTermica770() {
         curva del fabricante a la Icc declarada. Sin ese valor no se puede verificar
         k²S² ≥ I²t (AEA 770, 770.15, pág. 45).
       </span>`;
+    proyectoActual.estado770 = proyectoActual.estado770 || {};
+    proyectoActual.estado770.termicaOk = null; // null = no evaluable (falta dato), distinto de false = incumple
+    proyectoActual.estado770.termicaFaltaDato = true;
     return;
   }
 
@@ -1441,6 +1464,13 @@ function evaluarVerificacionTermica770() {
     resumen += '<div style="opacity:0.7; font-size:12px; margin-top:4px;">Hay conductores fuera de la tabla simplificada de esta app; verificarlos manualmente.</div>';
   }
 
+  // NUEVO: se guarda el resultado como estado (no se vuelve a leer del DOM
+  // desde otras funciones), para que el semáforo consolidado no dependa
+  // del orden en que se llaman las funciones de renderizado.
+  proyectoActual.estado770 = proyectoActual.estado770 || {};
+  proyectoActual.estado770.termicaOk = !hayProblemas;
+  proyectoActual.estado770.termicaFaltaDato = false;
+
   contenedor.innerHTML = items + resumen + `
     <p style="opacity:0.7; font-size:12px; margin-top:8px;">
       El valor de I²t debe corresponder a la curva del fabricante A LA MISMA Icc declarada
@@ -1479,6 +1509,10 @@ function actualizarResumenAuto77015() {
   contenedor.innerHTML = items + (hayProblemas
     ? '<div class="invalido" style="margin-top:8px;">⚠️ Hay circuitos que no cumplen la coordinación cable-protección exigida por 770.15.2/770.15.3.</div>'
     : '<div class="valido" style="margin-top:8px;">✓ Todos los circuitos cumplen la coordinación cable-protección (770.15.1 a 770.15.3).</div>');
+
+  // NUEVO: estado guardado para el semáforo consolidado.
+  proyectoActual.estado770 = proyectoActual.estado770 || {};
+  proyectoActual.estado770.coordinacionOk = !hayProblemas;
 }
 
 function calcularEstadoGeneralChecklist770() {
@@ -1500,13 +1534,14 @@ function calcularEstadoGeneralChecklist770() {
     ? 'Falta dato de Icc'
     : (pdc >= icc ? `OK (${pdc}kA ≥ ${icc}kA)` : `⚠️ Insuficiente (${pdc}kA < ${icc}kA)`);
 
-  // NUEVO: estado resumido de la verificación térmica k²S²≥I²t para el stat general
+  // NUEVO: estado resumido de la verificación térmica k²S²≥I²t para el stat general.
+  // Se lee de proyectoActual.estado770 (calculado por evaluarVerificacionTermica770),
+  // no del DOM, para que no dependa del orden de renderizado.
   const i2t = proyectoActual.i2tTermicas;
+  const termicaOkGuardado = proyectoActual.estado770?.termicaOk;
   const termicaTexto = !i2t
     ? 'Falta dato de I²t'
-    : document.getElementById('resultadoVerificacionTermica770')?.querySelector('.invalido')
-      ? '⚠️ Revisar sección'
-      : 'OK';
+    : (termicaOkGuardado === false ? '⚠️ Revisar sección' : 'OK');
 
   contenedor.innerHTML = `
     <div class="stats-grid">
@@ -1530,7 +1565,64 @@ function actualizarChecklist770() {
   evaluarVerificacionTermica770(); // NUEVO: k²S² ≥ I²t junto al resto de 770.15
   actualizarResumenPuntosUtilizacion770(); // NUEVO: refresca el resumen de 770.7.III junto con el resto
   calcularEstadoGeneralChecklist770();
+  calcularSemaforoGeneral(); // NUEVO: semáforo consolidado de todo el proyecto
   guardarChecklist770();
+}
+
+// NUEVO: semáforo consolidado. Solo LEE resultados ya calculados por las
+// funciones de verificación (no recalcula nada), para no duplicar lógica
+// ni arriesgar que el semáforo diga algo distinto de las secciones de
+// detalle. Estados posibles por chequeo: true (cumple), false (no cumple),
+// null/undefined (no evaluable todavía por falta de datos o de circuitos).
+function calcularSemaforoGeneral() {
+  const contenedor = document.getElementById('semaforoGeneral');
+  if (!contenedor) return;
+
+  if (!proyectoActual.tipoSistema || proyectoActual.circuitos.length === 0) {
+    contenedor.innerHTML = '';
+    contenedor.className = 'semaforo-box';
+    return;
+  }
+
+  const estado = proyectoActual.estado770 || {};
+
+  // Caída de tensión: se recalcula acá el mismo resumen que usa la tabla de
+  // circuitos (circuito.valido), sin volver a calcular ninguna caída.
+  const circuitosFueraTabla = proyectoActual.circuitos.filter(c => c.conductor === '>70').length;
+  const circuitosCaidaExcesiva = proyectoActual.circuitos.filter(c => c.conductor !== '>70' && !c.valido).length;
+  const caidaOk = circuitosFueraTabla === 0 && circuitosCaidaExcesiva === 0;
+
+  const chequeos = [
+    { label: 'Caída de tensión', ok: caidaOk, faltaDato: false },
+    { label: 'Coordinación cable-protección (770.15.1-3)', ok: estado.coordinacionOk, faltaDato: estado.coordinacionOk === undefined },
+    { label: 'Verificación térmica k²S²≥I²t (770.15)', ok: estado.termicaOk, faltaDato: !!estado.termicaFaltaDato },
+    { label: 'Poder de corte PdCcc≥I\'\'k (770.15)', ok: estado.poderCorteOk, faltaDato: !!estado.poderCorteFaltaDato },
+  ];
+
+  const conProblema = chequeos.filter(c => c.ok === false);
+  const conFaltante = chequeos.filter(c => c.ok === null || c.ok === undefined || c.faltaDato);
+
+  let nivel, mensaje;
+  if (conProblema.length > 0) {
+    nivel = 'rojo';
+    mensaje = `⚠️ ${conProblema.length} verificación(es) sin cumplir: ${conProblema.map(c => c.label).join(', ')}.`;
+  } else if (conFaltante.length > 0) {
+    nivel = 'amarillo';
+    mensaje = `ℹ️ Faltan datos para terminar de verificar: ${conFaltante.map(c => c.label).join(', ')}.`;
+  } else {
+    nivel = 'verde';
+    mensaje = '✓ Todas las verificaciones disponibles cumplen la Sección 770.';
+  }
+
+  contenedor.className = `semaforo-box semaforo-${nivel}`;
+  contenedor.innerHTML = `
+    <div class="semaforo-titulo">Estado general del proyecto</div>
+    <div class="semaforo-mensaje">${mensaje}</div>
+    <p style="opacity:0.75; font-size:12px; margin-top:6px; margin-bottom:0;">
+      Resumen automático de los chequeos de la Sección 770 ya calculados en esta página.
+      No reemplaza la verificación final por un instalador electricista matriculado.
+    </p>
+  `;
 }
 
 function reiniciarChecklist770() {
@@ -1609,6 +1701,12 @@ function initChecklist770() {
       actualizarGradoElectrificacion();
       actualizarResumenAuto77015();
       evaluarVerificacionTermica770(); // NUEVO: recalcula también al agregar/eliminar circuitos
+      // NUEVO: sin esta línea, el semáforo (que ya se dispara antes, de forma
+      // síncrona, desde renderResumenTotal) queda un paso desactualizado:
+      // usaría el estado de coordinación/térmica del circuito ANTERIOR,
+      // porque este observer corre después (como microtask) de que el
+      // semáforo ya se pintó por primera vez.
+      calcularSemaforoGeneral();
     });
     observer.observe(tbody, { childList: true });
   }

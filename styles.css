@@ -13,6 +13,7 @@
   --border-color: rgba(255, 234, 0, 0.15);
   --success: #00E676;
   --danger: #FF1744;
+  --warning: #FFB300; /* NUEVO: amarillo de advertencia del semáforo, distinto del amarillo de marca (--primary) */
 }
 
 * {
@@ -430,6 +431,50 @@ td {
   margin-top: 16px;
 }
 
+/* NUEVO: semáforo consolidado del proyecto (verde/amarillo/rojo).
+   Vacío (sin clase de nivel) cuando todavía no hay circuitos cargados. */
+.semaforo-box {
+  border-radius: 10px;
+  padding: 16px 20px;
+  margin-top: 16px;
+  border: 1px solid transparent;
+}
+
+.semaforo-box:empty {
+  display: none;
+}
+
+.semaforo-titulo {
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  opacity: 0.8;
+  margin-bottom: 4px;
+}
+
+.semaforo-mensaje {
+  font-weight: bold;
+  font-size: 15px;
+}
+
+.semaforo-verde {
+  background: linear-gradient(135deg, rgba(0, 230, 118, 0.12), rgba(0, 230, 118, 0.04));
+  border-color: rgba(0, 230, 118, 0.35);
+}
+.semaforo-verde .semaforo-mensaje { color: var(--success); }
+
+.semaforo-amarillo {
+  background: linear-gradient(135deg, rgba(255, 179, 0, 0.14), rgba(255, 179, 0, 0.05));
+  border-color: rgba(255, 179, 0, 0.4);
+}
+.semaforo-amarillo .semaforo-mensaje { color: var(--warning); }
+
+.semaforo-rojo {
+  background: linear-gradient(135deg, rgba(255, 23, 68, 0.14), rgba(255, 23, 68, 0.05));
+  border-color: rgba(255, 23, 68, 0.4);
+}
+.semaforo-rojo .semaforo-mensaje { color: var(--danger); }
+
 .actions-export {
   display: flex;
   gap: 12px;
@@ -725,6 +770,21 @@ td {
   }
   .valido { color: #0a7a2f !important; font-weight: bold; }
   .invalido { color: #b3001b !important; font-weight: bold; }
+
+  /* NUEVO: semáforo consolidado, adaptado a fondo blanco de impresión.
+     page-break-inside:avoid para que no se corte entre dos hojas. */
+  .semaforo-box {
+    background: #fafafa !important;
+    border: 1px solid #ccc !important;
+    page-break-inside: avoid;
+  }
+  .semaforo-verde { border-left: 5px solid #0a7a2f !important; }
+  .semaforo-amarillo { border-left: 5px solid #a66a00 !important; }
+  .semaforo-rojo { border-left: 5px solid #b3001b !important; }
+  .semaforo-verde .semaforo-mensaje { color: #0a7a2f !important; }
+  .semaforo-amarillo .semaforo-mensaje { color: #a66a00 !important; }
+  .semaforo-rojo .semaforo-mensaje { color: #b3001b !important; }
+  .semaforo-titulo { color: #333 !important; }
 
   /* La columna Acción (botón eliminar) no tiene sentido en un informe impreso */
   th:last-child, td:last-child { display: none; }
