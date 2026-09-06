@@ -1613,16 +1613,25 @@ function calcularSemaforoGeneral() {
   const conProblema = chequeos.filter(c => c.ok === false);
   const conFaltante = chequeos.filter(c => c.ok === null || c.ok === undefined || c.faltaDato);
 
-  let nivel, mensaje;
+  // CORREGIDO: antes, si había al menos un problema (rojo), el bloque
+  // "else if" siguiente ni se evaluaba y los pendientes de verificar
+  // (amarillo, ej. agrupamiento >6mm² sin tabla) desaparecían del mensaje
+  // por completo aunque existieran. Ahora se arman los dos mensajes por
+  // separado y se combinan, así el semáforo nunca oculta información que
+  // ya tiene calculada.
+  let nivel;
+  let mensaje = '';
   if (conProblema.length > 0) {
     nivel = 'rojo';
-    mensaje = `⚠️ ${conProblema.length} verificación(es) sin cumplir: ${conProblema.map(c => c.label).join(', ')}.`;
+    mensaje += `⚠️ ${conProblema.length} verificación(es) sin cumplir: ${conProblema.map(c => c.label).join(', ')}.`;
   } else if (conFaltante.length > 0) {
     nivel = 'amarillo';
-    mensaje = `ℹ️ Faltan datos para terminar de verificar: ${conFaltante.map(c => c.label).join(', ')}.`;
   } else {
     nivel = 'verde';
     mensaje = '✓ Todas las verificaciones disponibles cumplen la Sección 770.';
+  }
+  if (conFaltante.length > 0 && nivel !== 'verde') {
+    mensaje += `${mensaje ? ' ' : ''}ℹ️ Además, faltan datos o verificación manual para: ${conFaltante.map(c => c.label).join(', ')}.`;
   }
 
   contenedor.className = `semaforo-box semaforo-${nivel}`;
