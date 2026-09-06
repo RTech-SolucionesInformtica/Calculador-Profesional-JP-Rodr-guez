@@ -821,11 +821,23 @@ function configurarSistema() {
   renderResumenTablero();
   renderTablaCircuitos();
   evaluarVerificacionTermica770(); // NUEVO: refresca la verificación térmica con los datos recién configurados
-  // NUEVO: se recalcula el semáforo DESPUÉS de evaluarVerificacionTermica770().
-  // renderTablaCircuitos() (arriba) ya dispara calcularSemaforoGeneral() una vez,
-  // pero en ese momento el I²t/Icc recién configurados todavía no se habían
-  // vuelto a evaluar — sin esta segunda llamada el semáforo se quedaría un paso
-  // desactualizado hasta el próximo cambio en la tabla de circuitos.
+  // CORREGIDO (bug de sincronización detectado en revisión): antes, la
+  // coordinación cable-protección (estado770.coordinacionOk) solo se
+  // actualizaba como efecto secundario del MutationObserver que observa
+  // la tabla de circuitos (dispara actualizarResumenAuto77015() cuando
+  // renderTablaCircuitos(), llamado arriba, reconstruye el <tbody>). Esa
+  // llamada ocurre en un microtask que corre DESPUÉS de que esta función
+  // termina, así que el calcularSemaforoGeneral() de más abajo podía leer
+  // un estado770.coordinacionOk todavía viejo (o undefined en la primera
+  // configuración con circuitos ya cargados desde localStorage), mostrando
+  // el semáforo con la información de coordinación desactualizada hasta el
+  // próximo cambio en la tabla de circuitos o click en "Actualizar". Ahora
+  // se llama explícitamente ANTES del semáforo, sin depender del efecto
+  // secundario del observer.
+  actualizarResumenAuto77015();
+  // NUEVO: se recalcula el semáforo DESPUÉS de evaluarVerificacionTermica770()
+  // y actualizarResumenAuto77015(), para que use el estado770 recién actualizado
+  // (térmica, coordinación) y no uno desfasado de la configuración anterior.
   calcularSemaforoGeneral();
   alert('✓ Sistema configurado correctamente');
 }
@@ -1086,11 +1098,23 @@ function determinarGradoElectrificacion(superficieLimite) {
 }
 
 // Tabla 770.7.II - Resumen de los números mínimos de circuitos por grado.
+// CORREGIDO (bug de lógica detectado en revisión): cada combinación válida
+// de esta tabla exige un mínimo de IUG y de TUG por separado (ninguna
+// combinación admite 0 de alguno de los dos), pero antes solo se comparaba
+// la SUMA (iug+tug) contra "total". Eso dejaba pasar como "cumple" un caso
+// como 3 circuitos "Tomacorriente" y 0 "Iluminación" en grado Medio: la suma
+// (3) alcanza el total exigido, pero ninguna combinación real de la norma
+// admite 0 IUG. Se agregan minIUG/minTUG (el mínimo de cada tipo que
+// aparece en TODAS las combinaciones listadas) para detectar ese caso.
+// "Superior" exige además 1 circuito "de libre elección" que esta app no
+// modela como tipo propio; minIUG/minTUG cubren el piso de IUG/TUG, pero
+// igual hace falta un circuito adicional (de cualquier tipo) para llegar
+// al total de 6 — eso lo sigue cubriendo la comparación de "total".
 const CIRCUITOS_MINIMOS_770_7 = {
-  'Mínimo':   { total: 2, texto: '1 circuito de Iluminación de uso general (IUG) + 1 de Tomacorrientes de uso general (TUG)' },
-  'Medio':    { total: 3, texto: '3 circuitos de uso general: 2 IUG + 1 TUG, o bien 1 IUG + 2 TUG' },
-  'Elevado':  { total: 5, texto: '5 circuitos de uso general: 2 IUG + 3 TUG, o bien 3 IUG + 2 TUG' },
-  'Superior': { total: 6, texto: '6 circuitos: 2 IUG + 3 TUG + 1 de libre elección, o bien 3 IUG + 2 TUG + 1 de libre elección' }
+  'Mínimo':   { total: 2, minIUG: 1, minTUG: 1, texto: '1 circuito de Iluminación de uso general (IUG) + 1 de Tomacorrientes de uso general (TUG)' },
+  'Medio':    { total: 3, minIUG: 1, minTUG: 1, texto: '3 circuitos de uso general: 2 IUG + 1 TUG, o bien 1 IUG + 2 TUG' },
+  'Elevado':  { total: 5, minIUG: 2, minTUG: 2, texto: '5 circuitos de uso general: 2 IUG + 3 TUG, o bien 3 IUG + 2 TUG' },
+  'Superior': { total: 6, minIUG: 2, minTUG: 2, texto: '6 circuitos: 2 IUG + 3 TUG + 1 de libre elección, o bien 3 IUG + 2 TUG + 1 de libre elección' }
 };
 
 // QUITADO tras revisar el texto completo de la Guía AEA 770: este
@@ -1348,7 +1372,21 @@ function actualizarGradoElectrificacion() {
   const iug = proyectoActual.circuitos.filter(c => c.tipoCircuito === 'Iluminación').length;
   const tug = proyectoActual.circuitos.filter(c => c.tipoCircuito === 'Tomacorriente').length;
   const totalGeneral = iug + tug;
-  const cumpleMinimo = totalGeneral >= minimos.total;
+  // CORREGIDO: además del total, se exige el mínimo de CADA tipo (ver
+  // comentario en CIRCUITOS_MINIMOS_770_7). Antes solo se chequeaba la suma.
+  const cumpleTotal = totalGeneral >= minimos.total;
+  const cumpleIUG = iug >= minimos.minIUG;
+  const cumpleTUG = tug >= minimos.minTUG;
+  const cumpleMinimo = cumpleTotal && cumpleIUG && cumpleTUG;
+
+  let detalleFaltante = '';
+  if (!cumpleMinimo) {
+    const faltantes = [];
+    if (!cumpleIUG) faltantes.push(`al menos ${minimos.minIUG} de Iluminación (IUG)`);
+    if (!cumpleTUG) faltantes.push(`al menos ${minimos.minTUG} de Tomacorriente (TUG)`);
+    if (cumpleIUG && cumpleTUG && !cumpleTotal) faltantes.push(`completar el total de ${minimos.total} circuitos de uso general`);
+    detalleFaltante = ` — falta ${faltantes.join(' y ')}`;
+  }
 
   contenedor.innerHTML = `
     <div class="stats-grid">
@@ -1358,7 +1396,7 @@ function actualizarGradoElectrificacion() {
     <p style="margin:10px 0 4px 0;"><strong>Circuitos mínimos exigidos (770.7.5):</strong> ${minimos.texto}</p>
     <p class="${cumpleMinimo ? 'valido' : 'invalido'}" style="margin:4px 0;">
       Circuitos de uso general ya cargados arriba: ${totalGeneral} (IUG: ${iug} · TUG: ${tug})
-      — ${cumpleMinimo ? '✓ cumple la cantidad mínima exigida' : `⚠️ faltan circuitos para llegar al mínimo de ${minimos.total}`}
+      — ${cumpleMinimo ? '✓ cumple la cantidad mínima exigida' : `⚠️ no cumple el mínimo exigido${detalleFaltante}`}
     </p>
     <p style="opacity:0.7; font-size:12px; margin-top:6px;">
       Nota: la cantidad y ubicación de los puntos mínimos de utilización por ambiente (bocas de
