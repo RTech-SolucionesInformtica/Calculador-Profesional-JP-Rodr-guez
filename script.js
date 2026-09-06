@@ -1602,12 +1602,20 @@ function calcularSemaforoGeneral() {
     c.conductor !== '>70' && c.agrupamientoVerificado === false && (c.circuitosPorCano || 1) > 1
   ).length;
 
+  // NUEVO: faltaba este chequeo. Mismo criterio que ya usa renderResumenTotal()
+  // para la advertencia "La suma de circuitos supera la potencia contratada" —
+  // sin factor de simultaneidad, comparación directa carga instalada vs.
+  // potencia contratada (conservadora, puede sobrestimar el problema).
+  const totalPotenciaCircuitos = proyectoActual.circuitos.reduce((sum, c) => sum + c.potenciaCircuito, 0);
+  const potenciaOk = !(proyectoActual.potenciaTotal > 0 && totalPotenciaCircuitos > proyectoActual.potenciaTotal);
+
   const chequeos = [
     { label: 'Caída de tensión', ok: caidaOk, faltaDato: false },
     { label: 'Coordinación cable-protección (770.15.1-3)', ok: estado.coordinacionOk, faltaDato: estado.coordinacionOk === undefined },
     { label: 'Verificación térmica k²S²≥I²t (770.15)', ok: estado.termicaOk, faltaDato: !!estado.termicaFaltaDato },
     { label: 'Poder de corte PdCcc≥I\'\'k (770.15)', ok: estado.poderCorteOk, faltaDato: !!estado.poderCorteFaltaDato },
     { label: `Agrupamiento >6mm² sin tabla (${circuitosSinDatosAgrupamiento} circuito(s), verificar manualmente)`, ok: circuitosSinDatosAgrupamiento === 0 ? true : undefined, faltaDato: circuitosSinDatosAgrupamiento > 0 },
+    { label: 'Potencia contratada vs. suma de circuitos', ok: potenciaOk, faltaDato: false },
   ];
 
   const conProblema = chequeos.filter(c => c.ok === false);
