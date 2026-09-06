@@ -123,20 +123,48 @@ function encontrarConductorConAgrupamiento(corriente, circuitosPorCano = 1) {
   return encontrarConductor(corriente);
 }
 
-// NUEVO: secciones mínimas exigidas por la AEA 90364 según tipo de
-// circuito, independientemente de la corriente que dé el cálculo.
-// TUG (tomas de uso general): el mínimo depende del tipo de
-// tomacorriente instalado (AEA 90364-7-770):
-//   - Tomas comunes 2P+T IRAM 2071 (10A por boca) -> disyuntor máx. 16A
-//   - Tomas industriales IRAM IEC 60309 (16A por boca) -> disyuntor máx. 20A
-// TUE (circuitos especiales - cocina, lavarropas, calefacción, etc.): mín. 4mm²/25A.
-// Verificar siempre contra la tabla AEA vigente según el método de instalación real.
+// CORREGIDO (revisión contra el texto completo de la Guía AEA 770,
+// "Clasificación de los circuitos", pág. 22-23): la versión anterior
+// modelaba un único circuito "Tomacorriente" con dos variantes de ficha
+// (10A común -> 16A / 16A industrial -> 20A). Eso estaba mal: 16A no es
+// un valor de TUG en ningún caso (es el calibre máximo de IUG), y TUG
+// y TUE son dos TIPOS DE CIRCUITO distintos, no una misma categoría con
+// dos fichas posibles. La tabla real es:
+//   - IUG (Iluminación de Uso General): calibre máx. 16A, sección mín. 1,5mm².
+//   - TUG (Tomacorrientes de Uso General): SIEMPRE con fichas 2P+T IRAM
+//     2071 de 10A por definición; calibre máx. 20A (fijo, no depende de
+//     ninguna ficha), sección mín. 2,5mm².
+//   - TUE (Tomacorrientes de Uso Especial: consumos unitarios de 10 a 20A,
+//     ej. aire acondicionado en un dormitorio grande, fichas 2P+T IRAM 2071
+//     de 20A o IRAM-IEC 60309 de 16A): calibre máx. 32A, sección mín.
+//     2,5mm², corriente máxima admitida por boca = 20A.
+// Se agrega TUE como tipo de circuito propio (no como sub-opción de
+// "Tomacorriente"), ya que así lo trata la norma.
+// IMPORTANTE: estos valores son el PISO mínimo (sección normativa +
+// disyuntor de piso, tomado del ejemplo numérico resuelto de la propia
+// guía). NO son el techo/máximo admitido por circuito: ese techo
+// (16A para IUG, 20A para TUG, 32A para TUE) ya está garantizado por
+// separado, porque encontrarConductorConAgrupamiento() nunca elige un
+// disyuntor mayor al que admite la sección de cable (Iz, Tabla pág.40).
+// - IUG: sección mín. 1,5mm² (770). Piso de disyuntor 10A, igual al
+//   ejemplo de la guía (pág.31: Ib=2,73A -> In=10A). El techo de 16A
+//   solo se alcanza si la corriente de diseño lo exige.
+// - Tomacorriente = TUG: sección mín. 2,5mm² (770). Piso de disyuntor
+//   16A, igual al ejemplo de la guía (pág.31: ambos TUG quedan con
+//   In=16A pese a que Ib=10A). El techo normativo es 20A.
+// - Tomacorriente Especial (TUE): consumos unitarios de 10 a 20A por
+//   boca (ej. AC en dormitorio >36m², pág.11), sección mín. 2,5mm²,
+//   techo normativo 32A. La guía no da un ejemplo numérico resuelto de
+//   TUE, así que el piso de 20A es un criterio conservador propio,
+//   no un valor citado textualmente: VERIFICAR caso por caso, en
+//   particular que el cable elegido admita (Iz) el disyuntor final
+//   (con 2,5mm² el techo de Iz es 20A; para llegar a 32A hace falta
+//   subir a 6mm², según la Tabla "calibre máximo de las protecciones
+//   para los cables", pág.40).
 const MINIMOS_AEA = {
   'Iluminación': { mm2: 1.5, disyuntor: 10 },
-  'Tomacorriente': {
-    '10A': { mm2: 2.5, disyuntor: 16 },
-    '16A': { mm2: 2.5, disyuntor: 20 }
-  },
+  'Tomacorriente': { mm2: 2.5, disyuntor: 16 },
+  'Tomacorriente Especial (TUE)': { mm2: 2.5, disyuntor: 20 },
   'Cocina/Comedor': { mm2: 4, disyuntor: 25 },
   'Lavarropas': { mm2: 4, disyuntor: 25 },
   'Aire Acondicionado': { mm2: 4, disyuntor: 25 },
@@ -164,6 +192,7 @@ const COS_PHI_TIPOS = {
   'Calefactor': 0.95,
   'Iluminación': 0.95,
   'Tomacorriente': 0.95,
+  'Tomacorriente Especial (TUE)': 0.9,
   'Otro': 0.95
 };
 
@@ -211,8 +240,9 @@ function calcularSeccionPE(faseMm2) {
 // por defecto para todo lo que no fuera iluminación, lo cual permitía
 // una caída excesiva en tomacorrientes comunes.
 const CAIDA_MAX_TIPOS = {
-  'Aire Acondicionado': 5, // circuito de uso específico que alimenta un motor (compresor)
-  'Lavarropas': 5          // ídem, motor de lavado/centrifugado
+  'Aire Acondicionado': 5,            // circuito de uso específico que alimenta un motor (compresor)
+  'Lavarropas': 5,                    // ídem, motor de lavado/centrifugado
+  'Tomacorriente Especial (TUE)': 5   // TUE suele alimentar un único artefacto de mayor consumo unitario (ej. AC), mismo criterio
   // todo el resto (iluminación, tomacorriente, cocina, calefactor,
   // calentador de agua) es 3% por defecto según 771.13.b.1
 };
@@ -265,16 +295,12 @@ function encontrarConductor(corriente) {
   return { mm2: '>70', disyuntor: '>200', amperios: Infinity };
 }
 
-// NUEVO: fuerza la sección/térmica mínima según el tipo de circuito
-// (AEA exige mínimos por tipo, sin importar cuán baja sea la potencia declarada).
-// Para 'Tomacorriente', el mínimo depende además del tipo de toma
-// (10A común o 16A industrial), por eso ahí MINIMOS_AEA guarda un
-// objeto anidado en vez de { mm2, disyuntor } directo.
-function aplicarMinimoAEA(tipoCircuito, conductorCalculado, tipoTomacorriente = '10A') {
-  let minimo = MINIMOS_AEA[tipoCircuito];
-  if (tipoCircuito === 'Tomacorriente' && minimo) {
-    minimo = minimo[tipoTomacorriente] || minimo['10A'];
-  }
+// CORREGIDO: ya no hace falta distinguir un "tipoTomacorriente" dentro de
+// 'Tomacorriente', porque TUG ("Tomacorriente") y TUE ("Tomacorriente
+// Especial (TUE)") ahora son dos valores de tipoCircuito independientes,
+// cada uno con su propia entrada plana { mm2, disyuntor } en MINIMOS_AEA.
+function aplicarMinimoAEA(tipoCircuito, conductorCalculado) {
+  const minimo = MINIMOS_AEA[tipoCircuito];
   if (!minimo || conductorCalculado.mm2 === '>70') return conductorCalculado;
 
   return {
@@ -416,14 +442,6 @@ function renderResumenTablero() {
   evaluarPoderDeCorte();
 }
 
-// NUEVO: muestra el selector de tipo de tomacorriente solo cuando
-// el tipo de circuito elegido es "Tomacorriente".
-function toggleGrupoTipoTomacorriente() {
-  const tipoCircuito = document.getElementById('tipoCircuito').value;
-  const grupo = document.getElementById('grupoTipoTomacorriente');
-  grupo.style.display = (tipoCircuito === 'Tomacorriente') ? 'block' : 'none';
-}
-
 // NUEVO: sugiere automáticamente la caída de tensión máxima admitida según
 // el tipo de circuito (AEA es más estricta con iluminación). El usuario
 // puede seguir cambiándola si tiene un criterio justificado distinto.
@@ -444,7 +462,6 @@ function agregarCircuito(event) {
   }
   
   const tipoCircuito = document.getElementById('tipoCircuito').value;
-  const tipoTomacorriente = document.getElementById('tipoTomacorriente').value || '10A';
   const ambiente = document.getElementById('ambiente').value.trim();
   const potenciaCircuito = Number(document.getElementById('potenciaCircuito').value);
   const longitud = Number(document.getElementById('longitud').value);
@@ -488,7 +505,7 @@ function agregarCircuito(event) {
   // CORREGIDO: aplica la sección/térmica mínima exigida por AEA según
   // el tipo de circuito (tomas, cocina, lavarropas, etc.), aunque la
   // corriente calculada hubiera alcanzado con un cable más chico.
-  conductor = aplicarMinimoAEA(tipoCircuito, conductor, tipoTomacorriente);
+  conductor = aplicarMinimoAEA(tipoCircuito, conductor);
 
   // La caída de tensión se recalcula con el conductor definitivo
   // (puede haber cambiado de tamaño al aplicar el mínimo AEA).
@@ -501,7 +518,6 @@ function agregarCircuito(event) {
   const circuito = {
     id: Date.now(),
     tipoCircuito,
-    tipoTomacorriente: tipoCircuito === 'Tomacorriente' ? tipoTomacorriente : null,
     ambiente,
     potenciaCircuito,
     potenciaDPMS,
@@ -577,7 +593,6 @@ function renderTablaCircuitos() {
     
     tr.innerHTML = `
       <td>${escaparHTML(circuito.tipoCircuito)}</td>
-      <td>${circuito.tipoTomacorriente || '-'}</td>
       <td>${escaparHTML(circuito.ambiente)}</td>
       <td>${circuito.potenciaCircuito}${circuito.tipoCircuito === 'Iluminación' ? ` <span style="opacity:0.65;font-size:11px;">(DPMS ×2/3 = ${circuito.potenciaDPMS.toFixed(2)} kW)</span>` : ''}</td>
       <td>${circuito.corriente}</td>
@@ -783,7 +798,6 @@ function initApp() {
 
   // NUEVO: el selector de tipo de tomacorriente solo tiene sentido
   // cuando el circuito elegido es "Tomacorriente"; se oculta para el resto.
-  document.getElementById('tipoCircuito').addEventListener('change', toggleGrupoTipoTomacorriente);
   document.getElementById('tipoCircuito').addEventListener('change', actualizarCaidaSugerida);
   toggleGrupoTipoTomacorriente();
   document.getElementById('btnExport').addEventListener('click', exportarPDF);
@@ -1014,13 +1028,17 @@ const CIRCUITOS_MINIMOS_770_7 = {
   'Superior': { total: 6, texto: '6 circuitos: 2 IUG + 3 TUG + 1 de libre elección, o bien 3 IUG + 2 TUG + 1 de libre elección' }
 };
 
-// Tabla 770.8.II - Coeficientes de simultaneidad según el grado de electrificación.
-const COEFICIENTE_SIMULTANEIDAD_770_8 = {
-  'Mínimo': 1,
-  'Medio': 0.8,
-  'Elevado': 0.7,
-  'Superior': 0.6
-};
+// QUITADO tras revisar el texto completo de la Guía AEA 770: este
+// "coeficiente de simultaneidad por grado de electrificación" (antes
+// etiquetado como 770.8.2) no aparece en ningún lado de la guía. El
+// único factor de simultaneidad que el documento confirma es el 2/3
+// fijo para IUG (FACTOR_SIMULTANEIDAD_IUG, ya verificado numéricamente
+// contra el ejemplo resuelto de la guía) y el factor 1 para TUG/TUE
+// (que ya se toma implícito al no aplicar ninguna reducción). No se usaba
+// en ningún cálculo de corriente/sección, solo se mostraba en pantalla,
+// pero mostrar un número no verificado como si fuera un dato normativo
+// es peor que no mostrar nada. Se elimina hasta poder confirmarlo contra
+// una fuente (AEA 90364-7-770 vigente completa, no esta guía simplificada).
 
 // ============================================================
 // NUEVO — Tabla 770.7.III: puntos mínimos de utilización por
@@ -1259,7 +1277,6 @@ function actualizarGradoElectrificacion() {
   const superficieLimite = calcularSuperficieLimite(cubierta, semicubierta);
   const grado = determinarGradoElectrificacion(superficieLimite);
   const minimos = CIRCUITOS_MINIMOS_770_7[grado];
-  const coefSimult = COEFICIENTE_SIMULTANEIDAD_770_8[grado];
 
   // Cuenta, sin modificar la lógica original, los circuitos de uso general
   // (Iluminación / Tomacorriente) que ya se cargaron en el panel de circuitos.
@@ -1272,7 +1289,6 @@ function actualizarGradoElectrificacion() {
     <div class="stats-grid">
       <div class="stat"><span class="label">Superficie límite de aplicación:</span><span class="value">${superficieLimite.toFixed(1)} m²</span></div>
       <div class="stat"><span class="label">Grado de electrificación:</span><span class="value">${grado}</span></div>
-      <div class="stat"><span class="label">Coef. simultaneidad (770.8.2):</span><span class="value">${coefSimult}</span></div>
     </div>
     <p style="margin:10px 0 4px 0;"><strong>Circuitos mínimos exigidos (770.7.5):</strong> ${minimos.texto}</p>
     <p class="${cumpleMinimo ? 'valido' : 'invalido'}" style="margin:4px 0;">

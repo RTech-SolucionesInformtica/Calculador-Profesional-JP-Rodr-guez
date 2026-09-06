@@ -117,21 +117,15 @@
         <label for="tipoCircuito">Tipo de Circuito</label>
         <select id="tipoCircuito">
           <option value="">-- Seleccionar --</option>
-          <option value="Iluminación">Iluminación</option>
-          <option value="Tomacorriente">Tomacorriente</option>
+          <option value="Iluminación">Iluminación (IUG)</option>
+          <option value="Tomacorriente">Tomacorriente de Uso General — TUG (fichas 2P+T 10A, techo 20A)</option>
+          <option value="Tomacorriente Especial (TUE)">Tomacorriente de Uso Especial — TUE (consumo unitario 10 a 20A por boca, techo 32A)</option>
           <option value="Cocina/Comedor">Cocina/Comedor</option>
           <option value="Lavarropas">Lavarropas</option>
           <option value="Aire Acondicionado">Aire Acondicionado</option>
           <option value="Calefactor">Calefactor</option>
           <option value="Calentador de agua">Calentador de agua</option>
           <option value="Otro">Otro</option>
-        </select>
-      </div>
-      <div class="form-group" id="grupoTipoTomacorriente" style="display:none;">
-        <label for="tipoTomacorriente">Tipo de Tomacorriente</label>
-        <select id="tipoTomacorriente">
-          <option value="10A">10 A — Tomacorriente común (IRAM 2071)</option>
-          <option value="16A">16 A — Tomacorriente industrial (IRAM IEC 60309)</option>
         </select>
       </div>
       <div class="form-group">
@@ -183,7 +177,6 @@
         <thead>
           <tr>
             <th>Tipo</th>
-            <th>Toma</th>
             <th>Ambiente</th>
             <th>Potencia</th>
             <th>I (A)</th>
