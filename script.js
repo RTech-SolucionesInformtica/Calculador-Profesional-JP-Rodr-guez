@@ -207,6 +207,36 @@ const MINIMOS_AEA = {
   'Calentador de agua': { mm2: 4, disyuntor: 25 }
 };
 
+// NUEVO (bug de validación detectado en revisión): la Guía AEA 770 fija un
+// TECHO máximo de corriente/térmica para los circuitos de uso general, que
+// es distinto del PISO mínimo de MINIMOS_AEA:
+//   - IUG (Iluminación):              techo 16A (pág.22-23)
+//   - TUG (Tomacorriente):            techo 20A, fijo — no depende de la
+//                                      potencia declarada (pág.22-23)
+//   - TUE (Tomacorriente Especial):   techo 32A (pág.22-23)
+// Antes esto solo estaba documentado en un comentario (ver más abajo) bajo
+// el supuesto de que "ya está garantizado por separado" porque
+// encontrarConductorConAgrupamiento() nunca elige una térmica mayor a la
+// que admite el cable. Ese supuesto es FALSO en cuanto la corriente de
+// diseño (Ib) supera lo que cubre la tabla de agrupamiento de la guía
+// (hasta 6mm²/32A): en ese caso la función cae al criterio de "1 circuito
+// por caño" de CONDUCTORES_AEA y sigue subiendo de sección sin límite,
+// devolviendo por ejemplo un "Tomacorriente" de 10mm²/50A — un circuito que
+// no existe en la norma, porque un TUG jamás debería superar 20A (las
+// bocas de uso general son de 10A por ficha; una carga tan alta pertenece
+// a un circuito TUE, a un circuito dedicado, o hay que repartirla en varios
+// TUG). Sin este techo, la app terminaba "resolviendo" con cable y térmica
+// una clasificación de circuito que en los hechos es inválida.
+const TECHOS_AEA = {
+  'Iluminación': 16,
+  'Tomacorriente': 20,
+  'Tomacorriente Especial (TUE)': 32
+  // El resto (Cocina/Comedor, Lavarropas, Aire Acondicionado, Calefactor,
+  // Calentador de agua, Otro) son circuitos dedicados a un consumo
+  // específico: la guía no les fija un techo de corriente, se dimensionan
+  // según la carga real declarada.
+};
+
 // CORREGIDO: resistividad del cobre a temperatura de SERVICIO (~70-90°C
 // según aislación), no en frío a 20°C (0.0175). Usar el valor en frío
 // subestima la caída de tensión real en la instalación terminada en un
@@ -537,6 +567,27 @@ function agregarCircuito(event) {
 
   const corriente = calcularCorriente(potenciaDPMS, proyectoActual.tipoSistema, cosPhiCircuito);
   const circuitosPorCano = Number(document.getElementById('circuitosPorCano')?.value) || 1;
+
+  // NUEVO: bloquea circuitos IUG/TUG/TUE cuya corriente de diseño supera el
+  // techo normativo del tipo (ver TECHOS_AEA). Antes la app permitía, por
+  // ejemplo, un "Tomacorriente" de 47,85A y le calzaba un cable/térmica de
+  // 10mm²/50A — un circuito que no existe en la norma (TUG topea en 20A).
+  // Se corta ACÁ, antes de dimensionar nada, en vez de dejar pasar un
+  // circuito mal clasificado con un cable "que le entra".
+  const techo = TECHOS_AEA[tipoCircuito];
+  if (techo && corriente > techo) {
+    alert(
+      `⚠️ Corriente de diseño demasiado alta para este tipo de circuito.\n\n` +
+      `Ib = ${corriente} A, pero "${tipoCircuito}" tiene un techo normativo de ${techo} A (AEA 770).\n\n` +
+      `No se agregó el circuito. Opciones:\n` +
+      `• Repartir esta carga en más de un circuito de este tipo.\n` +
+      (tipoCircuito === 'Tomacorriente'
+        ? `• Si es un consumo puntual de un solo artefacto, cargarlo como "Tomacorriente Especial (TUE)" (techo 32A).\n`
+        : '') +
+      `• Si es un artefacto fijo de alto consumo, cargarlo como circuito dedicado ("Cocina/Comedor", "Aire Acondicionado", "Otro", etc.).`
+    );
+    return;
+  }
 
   // El mínimo AEA por tipo de circuito (tomas, cocina, lavarropas, etc.)
   // se exige DESDE el cálculo del conductor, no después: así, si el
