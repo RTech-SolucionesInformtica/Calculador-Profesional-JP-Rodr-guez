@@ -1592,11 +1592,22 @@ function calcularSemaforoGeneral() {
   const circuitosCaidaExcesiva = proyectoActual.circuitos.filter(c => c.conductor !== '>70' && !c.valido).length;
   const caidaOk = circuitosFueraTabla === 0 && circuitosCaidaExcesiva === 0;
 
+  // NUEVO: faltaba este chequeo. Es el mismo criterio que ya usa
+  // renderTablaCircuitos() para pintar el ⚠️ junto al calibre (avisoAgrupamiento):
+  // secciones >6mm² agrupadas con más de 1 circuito por caño, para las que
+  // esta app no tiene tabla de agrupamiento y usa el criterio conservador de
+  // 1 circuito por caño — no es un incumplimiento confirmado, sino algo que
+  // hay que verificar aparte, por eso cuenta como "falta dato", no como rojo.
+  const circuitosSinDatosAgrupamiento = proyectoActual.circuitos.filter(c =>
+    c.conductor !== '>70' && c.agrupamientoVerificado === false && (c.circuitosPorCano || 1) > 1
+  ).length;
+
   const chequeos = [
     { label: 'Caída de tensión', ok: caidaOk, faltaDato: false },
     { label: 'Coordinación cable-protección (770.15.1-3)', ok: estado.coordinacionOk, faltaDato: estado.coordinacionOk === undefined },
     { label: 'Verificación térmica k²S²≥I²t (770.15)', ok: estado.termicaOk, faltaDato: !!estado.termicaFaltaDato },
     { label: 'Poder de corte PdCcc≥I\'\'k (770.15)', ok: estado.poderCorteOk, faltaDato: !!estado.poderCorteFaltaDato },
+    { label: `Agrupamiento >6mm² sin tabla (${circuitosSinDatosAgrupamiento} circuito(s), verificar manualmente)`, ok: circuitosSinDatosAgrupamiento === 0 ? true : undefined, faltaDato: circuitosSinDatosAgrupamiento > 0 },
   ];
 
   const conProblema = chequeos.filter(c => c.ok === false);
