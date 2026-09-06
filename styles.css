@@ -842,6 +842,15 @@ td {
     text-align: center;
   }
 
+  /* NUEVO: línea de copyright/crédito del desarrollador, separada del
+     párrafo de disclaimer técnico (que ya tenía #printFooter) para que no
+     quede todo corrido en un mismo bloque de texto. */
+  #printFooterCredito {
+    margin-top: 8px;
+    font-size: 10px;
+    color: #888;
+  }
+
   .footer { display: none; }
 }
 
