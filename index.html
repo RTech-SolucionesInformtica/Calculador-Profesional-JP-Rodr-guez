@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#050811">
   <title>Calculador de Cableado Residencial AEA - Esc. José Martí</title>
   <link rel="stylesheet" href="styles.css">
@@ -27,12 +27,6 @@
         <circle cx="38" cy="74" r="3" fill="#1e293b"/>
         <circle cx="50" cy="74" r="3" fill="#1e293b"/>
         <circle cx="62" cy="74" r="3" fill="#FF1744"/>
-        <!-- Cables de Prueba: Gris (COM) y Rojo (V), cortos y contenidos dentro del ícono -->
-        <path d="M38 76 C 34 82, 28 84, 26 90" stroke="#94a3b8" stroke-width="2.5" fill="none" stroke-linecap="round"/>
-        <path d="M62 76 C 66 82, 72 84, 74 90" stroke="#FF1744" stroke-width="2.5" fill="none" stroke-linecap="round"/>
-        <!-- Puntas de Sonda -->
-        <path d="M26 90 L23 98 L26 95.5 L29 98 Z" fill="#94a3b8"/>
-        <path d="M74 90 L71 98 L74 95.5 L77 98 Z" fill="#FF1744"/>
       </svg>
     </div>
     
@@ -69,43 +63,12 @@
       <label for="longitudPrincipal">Longitud de acometida principal (m)</label>
       <input type="number" id="longitudPrincipal" inputmode="numeric" value="20">
     </div>
-    <div class="form-group">
-      <label for="iccOrigen">Corriente de cortocircuito presunta en el origen (kA)</label>
-      <input type="number" id="iccOrigen" step="0.1" inputmode="decimal" placeholder="Ej: 6 (dato que debe informar la distribuidora)">
-      <small style="opacity:0.7">AEA 770, pág. 45 (770.15): la empresa distribuidora debe brindar este valor en los bornes del medidor. Sin este dato no se puede verificar que las térmicas soporten el cortocircuito.</small>
-    </div>
-    <div class="form-group">
-      <label for="poderCorteTermicas">Poder de corte de las térmicas a instalar (kA)</label>
-      <select id="poderCorteTermicas">
-        <option value="3">3 kA</option>
-        <option value="4.5">4,5 kA</option>
-        <option value="6" selected>6 kA</option>
-        <option value="10">10 kA</option>
-        <option value="15">15 kA</option>
-        <option value="25">25 kA</option>
-      </select>
-      <small style="opacity:0.7">Dato de placa del interruptor (PdCcc), marcado en un rectángulo en el propio dispositivo.</small>
-    </div>
-    <div class="form-group">
-      <label for="tipoAislacion">Tipo de aislación de los conductores</label>
-      <select id="tipoAislacion">
-        <option value="PVC" selected>PVC (hasta 70°C) — k = 115</option>
-        <option value="XLPE">XLPE / EPR (hasta 90°C) — k = 143</option>
-      </select>
-      <small style="opacity:0.7">Define la constante "k" de la verificación térmica k²S² ≥ I²t (AEA 770, pág. 45). El cable domiciliario habitual (IRAM NM 247-3) es PVC.</small>
-    </div>
-    <div class="form-group">
-      <label for="i2tTermicas">Energía específica pasante I²t de la térmica (A²·s)</label>
-      <input type="number" id="i2tTermicas" step="1" inputmode="decimal" placeholder="Ej: 300000 (dato de la curva del fabricante)">
-      <small style="opacity:0.7">Tomar este dato de la curva "I²t" del fabricante de la térmica, evaluada A LA MISMA Icc informada arriba (no al poder de corte nominal). Sin este dato no se puede verificar k²S² ≥ I²t (AEA 770, pág. 45).</small>
-    </div>
     <button id="btnConfigurar" class="btn btn-primary btn-large">✓ Configurar Sistema</button>
     
     <!-- Tablero Principal Resumen -->
     <div id="panelTablero" class="summary-box" style="display: none; margin-top: 15px;">
       <h3>📊 Tablero Principal</h3>
       <div id="resumenTablero"></div>
-      <div id="resultadoPoderCorte" class="checklist-result" style="margin-top:10px;"></div>
     </div>
   </section>
 
@@ -117,9 +80,8 @@
         <label for="tipoCircuito">Tipo de Circuito</label>
         <select id="tipoCircuito">
           <option value="">-- Seleccionar --</option>
-          <option value="Iluminación">Iluminación (IUG)</option>
-          <option value="Tomacorriente">Tomacorriente de Uso General — TUG (fichas 2P+T 10A, techo 20A)</option>
-          <option value="Tomacorriente Especial (TUE)">Tomacorriente de Uso Especial — TUE (consumo unitario 10 a 20A por boca, techo 32A)</option>
+          <option value="Iluminación">Iluminación</option>
+          <option value="Tomacorriente">Tomacorriente</option>
           <option value="Cocina/Comedor">Cocina/Comedor</option>
           <option value="Lavarropas">Lavarropas</option>
           <option value="Aire Acondicionado">Aire Acondicionado</option>
@@ -133,9 +95,8 @@
         <input type="text" id="ambiente" placeholder="Ej: Cocina, Dormitorio">
       </div>
       <div class="form-group">
-        <label for="potenciaCircuito">Potencia instalada (kW)</label>
+        <label for="potenciaCircuito">Potencia (kW)</label>
         <input type="number" id="potenciaCircuito" step="0.01" inputmode="decimal" placeholder="Ej: 1.5">
-        <small style="opacity:0.7">Para circuitos de <strong>Iluminación (IUG)</strong> se aplica automáticamente el Factor de Simultaneidad 2/3 sobre este valor para calcular cable y térmica (AEA 770, Tabla 770.8.I nota 2).</small>
       </div>
       <div class="form-group">
         <label for="longitud">Longitud del circuito (m)</label>
@@ -144,19 +105,10 @@
       <div class="form-group">
         <label for="caida">Caída de tensión máxima permitida (%)</label>
         <select id="caida">
-          <option value="3">3% (Iluminación / Tomacorrientes - uso general)</option>
-          <option value="5">5% (circuitos que alimentan solo motores)</option>
+          <option value="3">3% (Ramales)</option>
+          <option value="5">5% (Circuitos)</option>
+          <option value="8">8% (Total)</option>
         </select>
-        <small style="opacity:0.7">Se autoselecciona según el tipo de circuito (AEA 90364-7-771, cláus. 771.13.b); podés cambiarlo si tenés un criterio justificado.</small>
-      </div>
-      <div class="form-group">
-        <label for="circuitosPorCano">Circuitos que comparten este caño</label>
-        <select id="circuitosPorCano">
-          <option value="1">1 (canalización individual)</option>
-          <option value="2">2 circuitos agrupados</option>
-          <option value="3">3 circuitos agrupados</option>
-        </select>
-        <small style="opacity:0.7">Si dos o más circuitos van por la misma cañería, el calibre máximo admitido baja (AEA 770, Tabla 770.12, pág. 40). Para más de 3 circuitos agrupados, consultar la tabla completa con un profesional.</small>
       </div>
       <div class="form-actions">
         <button type="submit" class="btn btn-primary">+ Agregar</button>
@@ -168,10 +120,6 @@
   <!-- Panel de Resultados -->
   <section class="results-panel panel">
     <h2>📊 Resumen de Circuitos</h2>
-
-    <!-- Encabezado de informe: oculto en pantalla, visible solo al exportar/imprimir -->
-    <div id="printMeta" class="print-only"></div>
-
     <div id="tableWrap">
       <table id="circuitsTable">
         <thead>
@@ -182,8 +130,6 @@
             <th>I (A)</th>
             <th>Cable</th>
             <th>Térmica</th>
-            <th>Agrup.</th>
-            <th>PE (tierra)</th>
             <th>Caída (V)</th>
             <th>Acción</th>
           </tr>
@@ -197,11 +143,6 @@
       </div>
     </div>
     
-    <!-- NUEVO: semáforo consolidado del proyecto. Se llena desde script.js
-         (calcularSemaforoGeneral), leyendo resultados ya calculados por las
-         funciones de verificación existentes. -->
-    <div id="semaforoGeneral" class="semaforo-box"></div>
-
     <div id="resumenCircuitos" class="resumen-box">
       <p style="text-align:center;opacity:0.7">Agrega circuitos para ver el resumen</p>
     </div>
@@ -210,224 +151,12 @@
       <button id="btnExport" class="btn btn-primary btn-large">📄 Exportar Proyecto PDF</button>
       <button id="btnLimpiarTodo" class="btn btn-secondary btn-large">🗑 Limpiar Todo</button>
     </div>
-
-    <!-- Pie de informe: oculto en pantalla, visible solo al exportar/imprimir -->
-    <div id="printFooter" class="print-only">
-      Informe generado automáticamente por el Calculador de Cableado Residencial AEA — Esc. José Martí.
-      Los valores mostrados son orientativos y deben ser verificados por un instalador electricista matriculado
-      antes de su ejecución, conforme a la reglamentación AEA 90364 vigente.
-      <div id="printFooterCredito">© 2026 R-TECH | Calculador AEA | Desarrollador Web: Juan Pablo Rodríguez</div>
-    </div>
-  </section>
-
-  <!-- ============================================
-       NUEVO PANEL — agregado de forma aditiva, no
-       reemplaza ni modifica ninguno de los paneles
-       anteriores (config-panel, circuits-panel,
-       results-panel). Guarda sus datos en su propia
-       clave de localStorage, separada del proyecto.
-       ============================================ -->
-  <section class="checklist-panel panel" id="checklist770Panel">
-    <h2>✅ Checklist AEA 90364-7-770 — Sección 770 (Viviendas)</h2>
-    <p class="checklist-intro">
-      Cumplimiento de la Sección 770. Los puntos 770.15.1 a 770.15.3 se evalúan
-      automáticamente a partir de los circuitos ya cargados arriba. El resto requiere
-      que confirmes la condición real de la instalación en obra.
-    </p>
-
-    <div class="checklist-group">
-      <h3>770.7 — Grado de electrificación (según superficie)</h3>
-      <div class="form-group">
-        <label for="inputSupCubierta">Superficie cubierta (m²)</label>
-        <input type="number" id="inputSupCubierta" step="0.1" inputmode="decimal" placeholder="Ej: 85">
-      </div>
-      <div class="form-group">
-        <label for="inputSupSemicubierta">Superficie semicubierta (m²)</label>
-        <input type="number" id="inputSupSemicubierta" step="0.1" inputmode="decimal" placeholder="Ej: 12">
-        <small style="opacity:0.7">Superficie límite de aplicación = cubierta + 50% de la semicubierta (770.7.1.1).</small>
-      </div>
-      <div id="resultadoGradoElectrificacion" class="checklist-result"></div>
-      <small style="opacity:0.65; display:block; margin-top:6px;">
-        ⚠️ La cantidad mínima de circuitos por grado y el "coeficiente de simultaneidad" que se muestran abajo
-        son valores de referencia que no pudimos verificar palabra por palabra contra las tablas 770.7.II/770.8.II
-        vigentes (no están disponibles como texto en esta guía). No se usan para calcular ningún circuito cargado
-        en la app — el cálculo real de cada circuito sigue el método de la Tabla 770.8.I (potencia por boca o
-        potencia real, con el factor de simultaneidad 2/3 solo para IUG). Verificar estos dos valores contra la
-        edición vigente de AEA 90364-7-770 antes de usarlos como definitivos.
-      </small>
-    </div>
-
-    <div class="checklist-group">
-      <h3>770.7 — Puntos mínimos de utilización por ambiente (Tabla 770.7.III)</h3>
-      <p class="checklist-intro">
-        Cargá cada ambiente de la vivienda para verificar la cantidad mínima de bocas de
-        Iluminación (IUG) y Tomacorrientes (TUG) exigida. Para <strong>Dormitorio</strong>,
-        <strong>Kitchinette</strong> y <strong>Estar/Comedor</strong> el mínimo se calcula
-        automáticamente según la Tabla 770.7.III (770.7.1). Para el resto de los ambientes
-        (Cocina, Baño, Lavadero, Pasillo, Garage, Otro) ingresá vos mismo el mínimo que
-        corresponda según la edición vigente de la AEA 90364-7-770 — la app no lo calcula
-        automáticamente para no arriesgar un valor incorrecto.
-      </p>
-
-      <form id="formAmbiente770" class="form-group">
-        <label for="tipoAmbiente770">Tipo de ambiente</label>
-        <select id="tipoAmbiente770">
-          <option value="Dormitorio">Dormitorio</option>
-          <option value="Kitchinette">Kitchinette</option>
-          <option value="Estar/Comedor">Estar / Comedor / Escritorio / Estudio / Biblioteca</option>
-          <option value="Cocina">Cocina</option>
-          <option value="Baño">Baño / Toilette</option>
-          <option value="Lavadero">Lavadero</option>
-          <option value="Pasillo">Pasillo cubierto</option>
-          <option value="Garage">Garage</option>
-          <option value="Otro">Otro</option>
-        </select>
-
-        <label for="nombreAmbiente770">Nombre / identificación (ej: "Dormitorio 2")</label>
-        <input type="text" id="nombreAmbiente770" placeholder="Ej: Dormitorio principal">
-
-        <div id="campoSuperficieAmbiente770">
-          <label for="superficieAmbiente770">Superficie del ambiente (m²)</label>
-          <input type="number" id="superficieAmbiente770" step="0.1" inputmode="decimal" placeholder="Ej: 12">
-        </div>
-
-        <div id="camposManualesAmbiente770" style="display:none;">
-          <label for="iugManualAmbiente770">Bocas IUG mínimas (según tabla 770.7.III)</label>
-          <input type="number" id="iugManualAmbiente770" min="0" step="1" placeholder="Ej: 1">
-          <label for="tugManualAmbiente770">Bocas TUG mínimas (según tabla 770.7.III)</label>
-          <input type="number" id="tugManualAmbiente770" min="0" step="1" placeholder="Ej: 3">
-        </div>
-
-        <button type="submit" class="btn btn-primary">➕ Agregar ambiente</button>
-      </form>
-
-      <div id="tableWrapAmbientes770">
-        <table id="ambientesTable770">
-          <thead>
-            <tr>
-              <th>Ambiente</th>
-              <th>Tipo</th>
-              <th>Superficie</th>
-              <th>IUG mín.</th>
-              <th>TUG mín.</th>
-              <th>Nota</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody></tbody>
-        </table>
-        <p id="emptyStateAmbientes770" style="text-align:center;opacity:0.7;">Todavía no agregaste ambientes.</p>
-      </div>
-
-      <div id="resultadoPuntosUtilizacion770" class="checklist-result"></div>
-    </div>
-
-    <div class="checklist-group">
-      <h3>770.14.1 — Protección simultánea contra contactos directos e indirectos</h3>
-      <label class="checklist-item">
-        <input type="checkbox" id="chk770_14_1_diferencial">
-        Interruptor diferencial (ID) de 30 mA instalado en el tablero principal, aguas arriba de las térmicas
-      </label>
-    </div>
-
-    <div class="checklist-group">
-      <h3>770.14.2 — Protección contra contactos directos</h3>
-      <label class="checklist-item">
-        <input type="checkbox" id="chk770_14_2_aislacion">
-        Partes activas cubiertas por aislación o envolventes (grado de protección IP2X mínimo)
-      </label>
-      <label class="checklist-item">
-        <input type="checkbox" id="chk770_14_2_tomas">
-        Tomacorrientes con obturadores / partes activas no accesibles al tacto directo
-      </label>
-    </div>
-
-    <div class="checklist-group">
-      <h3>770.14.3 — Protección contra contactos indirectos</h3>
-      <label class="checklist-item">
-        <input type="checkbox" id="chk770_14_3_corte">
-        Corte automático de la alimentación coordinado con el esquema de puesta a tierra (TT + diferencial)
-      </label>
-      <label class="checklist-item">
-        <input type="checkbox" id="chk770_14_3_continuidad">
-        Continuidad eléctrica verificada del conductor de protección (PE) en todos los circuitos
-      </label>
-    </div>
-
-    <div class="checklist-group">
-      <h3>770.14.4 — Características del sistema de puesta a tierra</h3>
-      <div class="form-group">
-        <label for="selEsquemaTierra">Esquema de puesta a tierra</label>
-        <select id="selEsquemaTierra">
-          <option value="TT">TT (habitual en viviendas AR)</option>
-          <option value="TN-S">TN-S</option>
-          <option value="TN-C-S">TN-C-S</option>
-        </select>
-      </div>
-      <div class="form-group">
-        <label for="inputResistenciaTierra">Resistencia de la toma de tierra medida (Ω)</label>
-        <input type="number" id="inputResistenciaTierra" step="0.1" inputmode="decimal" placeholder="Ej: 15">
-        <small style="opacity:0.7">Referencia orientativa con ID de 30mA (Ra × IΔn ≤ 24V para locales húmedos/exteriores). No reemplaza el análisis normativo completo de tensión de contacto límite.</small>
-      </div>
-      <div id="resultadoResistenciaTierra" class="checklist-result"></div>
-    </div>
-
-    <div class="checklist-group">
-      <h3>770.15.1 a 770.15.3 — Elección y coordinación de conductores y protecciones</h3>
-      <div id="resultadoAuto77015" class="checklist-result">
-        Configurá el sistema y agregá circuitos para evaluar este punto automáticamente.
-      </div>
-    </div>
-
-    <div class="checklist-group">
-      <h3>770.15 — Verificación térmica de cortocircuito (k²S² ≥ I²t)</h3>
-      <p class="checklist-intro">
-        Compara la energía específica pasante que admite cada conductor (según su sección y
-        tipo de aislación, cargados arriba en "Configuración del Sistema") contra la energía
-        específica pasante (I²t) que deja pasar la térmica, dato de la curva del fabricante.
-      </p>
-      <div id="resultadoVerificacionTermica770" class="checklist-result">
-        Configurá el sistema y cargá el dato de I²t para evaluar este punto automáticamente.
-      </div>
-    </div>
-
-    <div class="checklist-group">
-      <h3>770.15.4 — Protección contra sobretensiones transitorias</h3>
-      <label class="checklist-item">
-        <input type="checkbox" id="chk770_15_4_dps">
-        Dispositivo de protección contra sobretensiones (DPS/SPD) instalado
-      </label>
-      <div class="form-group">
-        <label for="selTipoDPS">Tipo de DPS (si aplica)</label>
-        <select id="selTipoDPS">
-          <option value="">-- No instalado / no aplica --</option>
-          <option value="I">Tipo 1 (riesgo de descarga atmosférica directa)</option>
-          <option value="II">Tipo 2 (protección general del tablero — caso habitual en viviendas)</option>
-          <option value="III">Tipo 3 (protección fina cerca de equipos sensibles)</option>
-        </select>
-      </div>
-    </div>
-
-    <div class="checklist-group">
-      <h3>770.15.5 — Protección contra sobretensiones permanentes</h3>
-      <label class="checklist-item">
-        <input type="checkbox" id="chk770_15_5_relesobre">
-        Relé/protector de tensión (sobre y subtensión) instalado, o red verificada como estable
-      </label>
-    </div>
-
-    <div class="form-actions" style="margin-top: 8px;">
-      <button type="button" id="btnActualizarChecklist770" class="btn btn-primary">🔄 Actualizar checklist</button>
-      <button type="button" id="btnReiniciarChecklist770" class="btn btn-secondary">🗑 Reiniciar checklist</button>
-    </div>
-
-    <div id="estadoGeneralChecklist770" class="summary-box" style="margin-top:16px;"></div>
   </section>
 </main>
 
 <footer class="footer">
   <div class="footer-content">
-    <small>© 2026 R-TECH | Calculador AEA | Desarrollador Web: Juan Pablo Rodríguez</small>
+    <small>© 2026 R-TECH | Calculador AEA | Autor: Juan Pablo Rodríguez</small>
     <a href="https://wa.me/543813399196" class="whatsapp-btn" target="_blank">
       <svg viewBox="0 0 24 24" fill="currentColor">
         <path d="M12.012 2c-5.506 0-9.989 4.478-9.99 9.984a9.964 9.964 0 001.333 4.993L2 22l5.135-1.347a9.946 9.946 0 004.877 1.267c5.507 0 9.991-4.477 9.992-9.986 0-2.67-1.037-5.178-2.923-7.062A9.925 9.925 0 0012.012 2zm5.726 14.129c-.314.882-1.542 1.616-2.11 1.674-.528.055-1.21.085-1.936-.145a10.66 10.66 0 01-4.259-2.52 11.608 11.608 0 01-2.946-4.009c-.36-.615-.572-1.332-.232-1.921.168-.291.528-.616.791-.832.083-.068.163-.122.222-.162.213-.146.402-.191.554-.045.152.145.548 1.344.593 1.439.046.094.046.204-.015.326-.061.122-.122.193-.213.297-.091.102-.192.176-.08.371.391.683.87 1.25 1.474 1.776.776.678 1.54 1.11 2.22 1.385.193.078.366.046.488-.088.152-.166.578-.671.73-.901.122-.18.274-.147.456-.076.183.071 1.411.666 1.654.787.244.12.406.18.467.284.061.105.061.616-.253 1.498z"/>
@@ -437,42 +166,6 @@
   </div>
 </footer>
 
-<!-- Botón flotante de WhatsApp -->
-<a
-  href="https://wa.me/543813399196?text=Hola%2C%20quer%C3%ADa%20hacer%20una%20consulta"
-  target="_blank"
-  rel="noopener noreferrer"
-  class="wsp-float-btn"
-  aria-label="Consultar por WhatsApp"
->
-  <svg class="wsp-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <path d="M12 2C6.48 2 2 6.48 2 12c0 1.85.5 3.58 1.36 5.07L2 22l5.06-1.33A9.94 9.94 0 0012 22c5.52 0 10-4.48 10-10S17.52 2 12 2z" fill="#000"/>
-    <path d="M17.47 14.38c-.28-.14-1.67-.82-1.93-.92-.26-.09-.45-.14-.64.14-.19.28-.73.92-.9 1.11-.17.19-.33.21-.61.07-.28-.14-1.18-.43-2.24-1.38-.83-.74-1.39-1.65-1.55-1.93-.16-.28-.02-.43.12-.57.13-.13.28-.33.42-.5.14-.17.19-.28.28-.47.09-.19.05-.35-.02-.5-.07-.14-.64-1.54-.88-2.11-.23-.55-.47-.48-.64-.49-.17-.01-.35-.01-.54-.01-.19 0-.5.07-.76.35-.26.28-1 1-1 2.42 0 1.43 1.03 2.81 1.17 3 .14.19 2.03 3.1 4.91 4.34.69.3 1.22.48 1.64.61.69.22 1.31.19 1.81.11.55-.08 1.67-.68 1.9-1.34.24-.66.24-1.22.17-1.34-.07-.12-.26-.19-.54-.33z" fill="#fff"/>
-  </svg>
-  <span class="wsp-text">Consultar por WhatsApp</span>
-</a>
-
 <script src="script.js"></script>
-
-<!--
-  CURSOR RAYO ELÉCTRICO — cursor amarillo con forma de rayo.
-  CORREGIDO: antes había DOS sistemas de chispas corriendo en paralelo
-  (la clase ElectricMouse de script.js + un segundo generador de rayitos
-  acá mismo). El segundo no respetaba "prefers-reduced-motion" (sus
-  elementos no tenían className, así que la regla CSS que apaga .spark
-  con esa preferencia no los alcanzaba), y además creaba un <div> nuevo
-  en cada touchmove del celular, lo que podía sentirse "trabado" justo
-  mientras alguien completa el formulario en un teléfono de gama baja.
-  Ahora solo queda el cursor con forma de rayo (decorativo, sin costo de
-  rendimiento) y todo el efecto de chispas lo maneja la única instancia
-  de ElectricMouse ya declarada en script.js, que sí respeta esa
-  preferencia de accesibilidad.
--->
-<style>
-  body {
-    cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><polygon points="18,1 6,18 15,18 12,31 27,12 17,12" fill="%23FFD700" stroke="%23231a00" stroke-width="1.5" stroke-linejoin="round"/></svg>') 4 2, auto;
-  }
-</style>
-
 </body>
 </html>
