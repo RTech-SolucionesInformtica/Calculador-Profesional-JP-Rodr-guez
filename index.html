@@ -27,6 +27,12 @@
         <circle cx="38" cy="74" r="3" fill="#1e293b"/>
         <circle cx="50" cy="74" r="3" fill="#1e293b"/>
         <circle cx="62" cy="74" r="3" fill="#FF1744"/>
+        <!-- Cables de Prueba: Gris (COM) y Rojo (V), cortos y contenidos dentro del ícono -->
+        <path d="M38 76 C 34 82, 28 84, 26 90" stroke="#94a3b8" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+        <path d="M62 76 C 66 82, 72 84, 74 90" stroke="#FF1744" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+        <!-- Puntas de Sonda -->
+        <path d="M26 90 L23 98 L26 95.5 L29 98 Z" fill="#94a3b8"/>
+        <path d="M74 90 L71 98 L74 95.5 L77 98 Z" fill="#FF1744"/>
       </svg>
     </div>
     
@@ -90,6 +96,13 @@
           <option value="Otro">Otro</option>
         </select>
       </div>
+      <div class="form-group" id="grupoTipoTomacorriente" style="display:none;">
+        <label for="tipoTomacorriente">Tipo de Tomacorriente</label>
+        <select id="tipoTomacorriente">
+          <option value="10A">10 A — Tomacorriente común (IRAM 2071)</option>
+          <option value="16A">16 A — Tomacorriente industrial (IRAM IEC 60309)</option>
+        </select>
+      </div>
       <div class="form-group">
         <label for="ambiente">Ambiente/Descripción</label>
         <input type="text" id="ambiente" placeholder="Ej: Cocina, Dormitorio">
@@ -105,10 +118,10 @@
       <div class="form-group">
         <label for="caida">Caída de tensión máxima permitida (%)</label>
         <select id="caida">
-          <option value="3">3% (Ramales)</option>
-          <option value="5">5% (Circuitos)</option>
-          <option value="8">8% (Total)</option>
+          <option value="3">3% (Iluminación / Tomacorrientes - uso general)</option>
+          <option value="5">5% (circuitos que alimentan solo motores)</option>
         </select>
+        <small style="opacity:0.7">Se autoselecciona según el tipo de circuito (AEA 90364-7-771, cláus. 771.13.b); podés cambiarlo si tenés un criterio justificado.</small>
       </div>
       <div class="form-actions">
         <button type="submit" class="btn btn-primary">+ Agregar</button>
@@ -120,16 +133,22 @@
   <!-- Panel de Resultados -->
   <section class="results-panel panel">
     <h2>📊 Resumen de Circuitos</h2>
+
+    <!-- Encabezado de informe: oculto en pantalla, visible solo al exportar/imprimir -->
+    <div id="printMeta" class="print-only"></div>
+
     <div id="tableWrap">
       <table id="circuitsTable">
         <thead>
           <tr>
             <th>Tipo</th>
+            <th>Toma</th>
             <th>Ambiente</th>
             <th>Potencia</th>
             <th>I (A)</th>
             <th>Cable</th>
             <th>Térmica</th>
+            <th>PE (tierra)</th>
             <th>Caída (V)</th>
             <th>Acción</th>
           </tr>
@@ -151,12 +170,19 @@
       <button id="btnExport" class="btn btn-primary btn-large">📄 Exportar Proyecto PDF</button>
       <button id="btnLimpiarTodo" class="btn btn-secondary btn-large">🗑 Limpiar Todo</button>
     </div>
+
+    <!-- Pie de informe: oculto en pantalla, visible solo al exportar/imprimir -->
+    <div id="printFooter" class="print-only">
+      Informe generado automáticamente por el Calculador de Cableado Residencial AEA — Esc. José Martí.
+      Los valores mostrados son orientativos y deben ser verificados por un instalador electricista matriculado
+      antes de su ejecución, conforme a la reglamentación AEA 90364 vigente.
+    </div>
   </section>
 </main>
 
 <footer class="footer">
   <div class="footer-content">
-    <small>© 2026 R-TECH | Calculador AEA | Autor: Juan Pablo Rodríguez</small>
+    <small>© 2026 R-TECH | Calculador AEA | Desarrollador Web: Juan Pablo Rodríguez</small>
     <a href="https://wa.me/543813399196" class="whatsapp-btn" target="_blank">
       <svg viewBox="0 0 24 24" fill="currentColor">
         <path d="M12.012 2c-5.506 0-9.989 4.478-9.99 9.984a9.964 9.964 0 001.333 4.993L2 22l5.135-1.347a9.946 9.946 0 004.877 1.267c5.507 0 9.991-4.477 9.992-9.986 0-2.67-1.037-5.178-2.923-7.062A9.925 9.925 0 0012.012 2zm5.726 14.129c-.314.882-1.542 1.616-2.11 1.674-.528.055-1.21.085-1.936-.145a10.66 10.66 0 01-4.259-2.52 11.608 11.608 0 01-2.946-4.009c-.36-.615-.572-1.332-.232-1.921.168-.291.528-.616.791-.832.083-.068.163-.122.222-.162.213-.146.402-.191.554-.045.152.145.548 1.344.593 1.439.046.094.046.204-.015.326-.061.122-.122.193-.213.297-.091.102-.192.176-.08.371.391.683.87 1.25 1.474 1.776.776.678 1.54 1.11 2.22 1.385.193.078.366.046.488-.088.152-.166.578-.671.73-.901.122-.18.274-.147.456-.076.183.071 1.411.666 1.654.787.244.12.406.18.467.284.061.105.061.616-.253 1.498z"/>
@@ -167,5 +193,89 @@
 </footer>
 
 <script src="script.js"></script>
+
+<!--
+  CURSOR RAYO ELÉCTRICO — agregado, no reemplaza nada de lo anterior.
+  Para quitarlo en el futuro, borrar solo este bloque (style + script).
+-->
+<style>
+  body {
+    cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><polygon points="18,1 6,18 15,18 12,31 27,12 17,12" fill="%23FFD700" stroke="%23231a00" stroke-width="1.5" stroke-linejoin="round"/></svg>') 4 2, auto;
+  }
+</style>
+<script>
+  (function() {
+    const sparks = [];
+    const maxSparks = 12;
+    const color = '#FFD700';
+    const size = 8;
+    const duration = 500;
+    const density = 1;
+
+    function spawnSpark(x, y) {
+      const spark = document.createElement('div');
+      const angle = Math.random() * 360;
+      const scale = (size / 8) * (0.7 + Math.random() * 0.6);
+      spark.innerHTML = `<svg width="20" height="20" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
+        <polygon points="18,1 6,18 15,18 12,31 27,12 17,12" fill="${color}" stroke="${color}" stroke-width="1"/>
+      </svg>`;
+      spark.style.position = 'fixed';
+      spark.style.left = x + 'px';
+      spark.style.top = y + 'px';
+      spark.style.pointerEvents = 'none';
+      spark.style.zIndex = 9999;
+      spark.style.transform = `translate(-50%, -50%) rotate(${angle}deg) scale(${scale})`;
+      spark.style.filter = `drop-shadow(0 0 6px ${color})`;
+      spark.style.opacity = '0.9';
+      document.body.appendChild(spark);
+      sparks.push(spark);
+
+      const driftX = (Math.random() - 0.5) * 30;
+      const driftY = (Math.random() - 0.5) * 30;
+
+      requestAnimationFrame(() => {
+        spark.style.transition = `opacity ${duration}ms ease-out, transform ${duration}ms ease-out`;
+        spark.style.opacity = '0';
+        spark.style.transform = `translate(calc(-50% + ${driftX}px), calc(-50% + ${driftY}px)) rotate(${angle + 40}deg) scale(${scale * 0.3})`;
+      });
+
+      setTimeout(() => {
+        spark.remove();
+        const idx = sparks.indexOf(spark);
+        if (idx > -1) sparks.splice(idx, 1);
+      }, duration);
+    }
+
+    let counter = 0;
+    document.addEventListener('mousemove', (e) => {
+      counter++;
+      if (counter % (5 - density) === 0) {
+        spawnSpark(e.clientX, e.clientY);
+      }
+      if (sparks.length > maxSparks) {
+        const old = sparks.shift();
+        if (old) old.remove();
+      }
+    });
+
+    // Soporte táctil para celular: rayitos al tocar/deslizar el dedo
+    let touchCounter = 0;
+    function handleTouch(e) {
+      for (let i = 0; i < e.touches.length; i++) {
+        touchCounter++;
+        if (touchCounter % (5 - density) === 0) {
+          spawnSpark(e.touches[i].clientX, e.touches[i].clientY);
+        }
+      }
+      if (sparks.length > maxSparks) {
+        const old = sparks.shift();
+        if (old) old.remove();
+      }
+    }
+    document.addEventListener('touchstart', handleTouch, { passive: true });
+    document.addEventListener('touchmove', handleTouch, { passive: true });
+  })();
+</script>
+
 </body>
 </html>

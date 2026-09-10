@@ -31,12 +31,18 @@ const CONDUCTORES_AEA = [
 
 // NUEVO: secciones mínimas exigidas por la AEA 90364 según tipo de
 // circuito, independientemente de la corriente que dé el cálculo.
-// TUG (tomas de uso general): mín. 2.5mm²/20A.
+// TUG (tomas de uso general): el mínimo depende del tipo de
+// tomacorriente instalado (AEA 90364-7-770):
+//   - Tomas comunes 2P+T IRAM 2071 (10A por boca) -> disyuntor máx. 16A
+//   - Tomas industriales IRAM IEC 60309 (16A por boca) -> disyuntor máx. 20A
 // TUE (circuitos especiales - cocina, lavarropas, calefacción, etc.): mín. 4mm²/25A.
 // Verificar siempre contra la tabla AEA vigente según el método de instalación real.
 const MINIMOS_AEA = {
   'Iluminación': { mm2: 1.5, disyuntor: 10 },
-  'Tomacorriente': { mm2: 2.5, disyuntor: 20 },
+  'Tomacorriente': {
+    '10A': { mm2: 2.5, disyuntor: 16 },
+    '16A': { mm2: 2.5, disyuntor: 20 }
+  },
   'Cocina/Comedor': { mm2: 4, disyuntor: 25 },
   'Lavarropas': { mm2: 4, disyuntor: 25 },
   'Aire Acondicionado': { mm2: 4, disyuntor: 25 },
@@ -44,7 +50,78 @@ const MINIMOS_AEA = {
   'Calentador de agua': { mm2: 4, disyuntor: 25 }
 };
 
-const RHO_COBRE = 0.0175;
+// CORREGIDO: resistividad del cobre a temperatura de SERVICIO (~70-90°C
+// según aislación), no en frío a 20°C (0.0175). Usar el valor en frío
+// subestima la caída de tensión real en la instalación terminada en un
+// ~25-28%. AEA 90364-5-52 recomienda considerar la resistividad a la
+// temperatura de trabajo del conductor.
+const RHO_COBRE = 0.0225;
+
+// NUEVO: cos φ típico por tipo de carga (AEA 90364-5-52, cargas con
+// componente inductiva por motor/compresor tienen cos φ real menor al
+// resistivo puro). Se usa el más conservador (el MENOR) entre este valor
+// y el cos φ general configurado por el usuario, para no subestimar la
+// corriente de diseño.
+const COS_PHI_TIPOS = {
+  'Aire Acondicionado': 0.85,
+  'Lavarropas': 0.85,
+  'Calentador de agua': 0.95,
+  'Cocina/Comedor': 0.95,
+  'Calefactor': 0.95,
+  'Iluminación': 0.95,
+  'Tomacorriente': 0.95,
+  'Otro': 0.95
+};
+
+function obtenerCosPhiCircuito(tipoCircuito, cosPhiGeneral) {
+  const cosPhiTipo = COS_PHI_TIPOS[tipoCircuito];
+  if (cosPhiTipo === undefined) return cosPhiGeneral;
+  return Math.min(cosPhiTipo, cosPhiGeneral);
+}
+
+// NUEVO (AEA 90364-5-54, tabla internacional habitual): sección mínima
+// del conductor de protección (PE) según la sección de fase.
+//   Sf ≤ 16mm²      -> Spe = Sf
+//   16 < Sf ≤ 35mm²  -> Spe = 16mm²
+//   Sf > 35mm²       -> Spe = Sf / 2
+// CORREGIDO: la tabla 771.13.I de AEA 90364-7-771 fija además un PISO
+// absoluto de 2,50 mm² para el "Conductor de protección", por lo que se
+// aplica ese mínimo aunque la fórmula por sección de fase diera menos
+// (por ejemplo, un circuito de iluminación con fase de 1,5mm²). NOTA: la
+// tabla de AEA no distingue explícitamente si ese piso de 2,5mm² es por
+// circuito terminal o solo para la línea principal de PE del tablero —
+// convendría que esto lo confirme un profesional matriculado contra la
+// edición vigente antes de dar el cálculo por definitivo.
+function calcularSeccionPE(faseMm2) {
+  if (typeof faseMm2 !== 'number') return null;
+  let spe;
+  if (faseMm2 <= 16) spe = faseMm2;
+  else if (faseMm2 <= 35) spe = 16;
+  else spe = faseMm2 / 2;
+  return Math.max(spe, 2.5);
+}
+
+// CORREGIDO tras verificar contra el texto oficial de AEA 90364-7-771
+// (corrigendum 2, cláusula 771.13.b): el 3% aplica a TODOS los circuitos
+// terminales de iluminación y tomacorrientes de uso general; el 5% es
+// exclusivo de "circuitos de uso específico que alimentan sólo motores"
+// (5% en régimen, 15% durante el arranque). Antes el código asumía 5%
+// por defecto para todo lo que no fuera iluminación, lo cual permitía
+// una caída excesiva en tomacorrientes comunes.
+const CAIDA_MAX_TIPOS = {
+  'Aire Acondicionado': 5, // circuito de uso específico que alimenta un motor (compresor)
+  'Lavarropas': 5          // ídem, motor de lavado/centrifugado
+  // todo el resto (iluminación, tomacorriente, cocina, calefactor,
+  // calentador de agua) es 3% por defecto según 771.13.b.1
+};
+
+// NUEVO: escapa texto de usuario antes de insertarlo vía innerHTML
+// (el campo "ambiente" es texto libre).
+function escaparHTML(texto) {
+  const div = document.createElement('div');
+  div.textContent = texto;
+  return div.innerHTML;
+}
 
 let proyectoActual = {
   tipoSistema: '',
@@ -84,8 +161,14 @@ function encontrarConductor(corriente) {
 
 // NUEVO: fuerza la sección/térmica mínima según el tipo de circuito
 // (AEA exige mínimos por tipo, sin importar cuán baja sea la potencia declarada).
-function aplicarMinimoAEA(tipoCircuito, conductorCalculado) {
-  const minimo = MINIMOS_AEA[tipoCircuito];
+// Para 'Tomacorriente', el mínimo depende además del tipo de toma
+// (10A común o 16A industrial), por eso ahí MINIMOS_AEA guarda un
+// objeto anidado en vez de { mm2, disyuntor } directo.
+function aplicarMinimoAEA(tipoCircuito, conductorCalculado, tipoTomacorriente = '10A') {
+  let minimo = MINIMOS_AEA[tipoCircuito];
+  if (tipoCircuito === 'Tomacorriente' && minimo) {
+    minimo = minimo[tipoTomacorriente] || minimo['10A'];
+  }
   if (!minimo || conductorCalculado.mm2 === '>70') return conductorCalculado;
 
   return {
@@ -95,8 +178,16 @@ function aplicarMinimoAEA(tipoCircuito, conductorCalculado) {
   };
 }
 
+// CORREGIDO: cuando la corriente supera la tabla de conductores (>200A,
+// mm2 === '>70'), antes se devolvía 0V de caída, lo que hacía que
+// validarCaida(0, max) diera "true" y el circuito apareciera como
+// CUMPLE en verde — un falso positivo grave, porque en realidad no hay
+// cable ni térmica normalizados disponibles para esa corriente. Ahora
+// devuelve NaN, que al compararse en validarCaida() da false de forma
+// natural (cualquier comparación con NaN es false en JS), marcando el
+// circuito como inválido en vez de aprobado por error.
 function calcularCaidaTension(corriente, longitud, mm2, sistema) {
-  if (mm2 === '>70') return 0;
+  if (mm2 === '>70') return NaN;
   
   let caida;
   if (sistema === 'trifasico') {
@@ -162,6 +253,7 @@ function renderResumenTablero() {
   const conductor = encontrarConductor(corrientePrincipal);
   const caidaV = calcularCaidaTension(corrientePrincipal, proyectoActual.longitudPrincipal, conductor.mm2, proyectoActual.tipoSistema);
   const caidaPorcentaje = calcularPorcentajeCaida(caidaV, proyectoActual.tipoSistema);
+  const seccionPEPrincipal = conductor.mm2 !== '>70' ? calcularSeccionPE(conductor.mm2) : null;
   
   resumen.innerHTML = `
     <div class="stats-grid">
@@ -170,9 +262,29 @@ function renderResumenTablero() {
       <div class="stat"><span class="label">Corriente I:</span><span class="value">${corrientePrincipal} A</span></div>
       <div class="stat"><span class="label">Cable:</span><span class="value">${conductor.mm2} mm²</span></div>
       <div class="stat"><span class="label">Térmica:</span><span class="value">${conductor.disyuntor} A</span></div>
+      <div class="stat"><span class="label">PE (tierra):</span><span class="value">${seccionPEPrincipal !== null ? seccionPEPrincipal + ' mm²' : '-'}</span></div>
       <div class="stat"><span class="label">Caída:</span><span class="value">${caidaV}V (${caidaPorcentaje}%)</span></div>
     </div>
   `;
+}
+
+// NUEVO: muestra el selector de tipo de tomacorriente solo cuando
+// el tipo de circuito elegido es "Tomacorriente".
+function toggleGrupoTipoTomacorriente() {
+  const tipoCircuito = document.getElementById('tipoCircuito').value;
+  const grupo = document.getElementById('grupoTipoTomacorriente');
+  grupo.style.display = (tipoCircuito === 'Tomacorriente') ? 'block' : 'none';
+}
+
+// NUEVO: sugiere automáticamente la caída de tensión máxima admitida según
+// el tipo de circuito (AEA es más estricta con iluminación). El usuario
+// puede seguir cambiándola si tiene un criterio justificado distinto.
+function actualizarCaidaSugerida() {
+  const tipoCircuito = document.getElementById('tipoCircuito').value;
+  const selectCaida = document.getElementById('caida');
+  if (!tipoCircuito) return;
+  const sugerido = CAIDA_MAX_TIPOS[tipoCircuito] || 3;
+  selectCaida.value = String(sugerido);
 }
 
 function agregarCircuito(event) {
@@ -184,6 +296,7 @@ function agregarCircuito(event) {
   }
   
   const tipoCircuito = document.getElementById('tipoCircuito').value;
+  const tipoTomacorriente = document.getElementById('tipoTomacorriente').value || '10A';
   const ambiente = document.getElementById('ambiente').value.trim();
   const potenciaCircuito = Number(document.getElementById('potenciaCircuito').value);
   const longitud = Number(document.getElementById('longitud').value);
@@ -194,31 +307,39 @@ function agregarCircuito(event) {
     return;
   }
   
-  // CORREGIDO: usa el factor de potencia configurado por el usuario,
-  // antes quedaba fijo en 0.95 sin importar lo que se configurara.
-  const corriente = calcularCorriente(potenciaCircuito, proyectoActual.tipoSistema, proyectoActual.factorPotencia);
+  // CORREGIDO: usa el cos φ propio del tipo de carga (motores/compresores
+  // tienen componente inductiva mayor), tomando el más conservador entre
+  // ese valor y el cos φ general configurado por el usuario.
+  const cosPhiCircuito = obtenerCosPhiCircuito(tipoCircuito, proyectoActual.factorPotencia);
+  const corriente = calcularCorriente(potenciaCircuito, proyectoActual.tipoSistema, cosPhiCircuito);
   let conductor = encontrarConductor(corriente);
 
   // CORREGIDO: aplica la sección/térmica mínima exigida por AEA según
   // el tipo de circuito (tomas, cocina, lavarropas, etc.), aunque la
   // corriente calculada hubiera alcanzado con un cable más chico.
-  conductor = aplicarMinimoAEA(tipoCircuito, conductor);
+  conductor = aplicarMinimoAEA(tipoCircuito, conductor, tipoTomacorriente);
 
   // La caída de tensión se recalcula con el conductor definitivo
   // (puede haber cambiado de tamaño al aplicar el mínimo AEA).
   const caidaV = calcularCaidaTension(corriente, longitud, conductor.mm2, proyectoActual.tipoSistema);
   const caidaPorcentaje = calcularPorcentajeCaida(caidaV, proyectoActual.tipoSistema);
+
+  // NUEVO (AEA 90364-5-54): sección del conductor de protección/tierra.
+  const seccionPE = conductor.mm2 !== '>70' ? calcularSeccionPE(conductor.mm2) : null;
   
   const circuito = {
     id: Date.now(),
     tipoCircuito,
+    tipoTomacorriente: tipoCircuito === 'Tomacorriente' ? tipoTomacorriente : null,
     ambiente,
     potenciaCircuito,
     longitud,
     caidaMaxima,
+    cosPhiCircuito,
     corriente,
     conductor: conductor.mm2,
     disyuntor: conductor.disyuntor,
+    seccionPE,
     caidaV,
     caidaPorcentaje,
     valido: validarCaida(caidaPorcentaje, caidaMaxima)
@@ -257,16 +378,22 @@ function renderTablaCircuitos() {
   
   proyectoActual.circuitos.forEach(circuito => {
     const tr = document.createElement('tr');
-    const estadoClass = circuito.valido ? 'valido' : 'invalido';
+    const fueraDeTabla = circuito.conductor === '>70';
+    const estadoClass = fueraDeTabla ? 'invalido' : (circuito.valido ? 'valido' : 'invalido');
+    const caidaTexto = fueraDeTabla
+      ? '⚠️ Corriente fuera de tabla (>200A) — requiere cálculo especial'
+      : `${circuito.caidaV}V (${circuito.caidaPorcentaje}%)`;
     
     tr.innerHTML = `
-      <td>${circuito.tipoCircuito}</td>
-      <td>${circuito.ambiente}</td>
+      <td>${escaparHTML(circuito.tipoCircuito)}</td>
+      <td>${circuito.tipoTomacorriente || '-'}</td>
+      <td>${escaparHTML(circuito.ambiente)}</td>
       <td>${circuito.potenciaCircuito}</td>
       <td>${circuito.corriente}</td>
       <td><strong>${circuito.conductor} mm²</strong></td>
       <td>${circuito.disyuntor} A</td>
-      <td class="${estadoClass}">${circuito.caidaV}V (${circuito.caidaPorcentaje}%)</td>
+      <td>${circuito.seccionPE !== null ? circuito.seccionPE + ' mm²' : '-'}</td>
+      <td class="${estadoClass}">${caidaTexto}</td>
       <td>
         <button data-id="${circuito.id}" class="btn-delete" title="Eliminar">🗑</button>
       </td>
@@ -285,21 +412,78 @@ function renderResumenTotal() {
   const circuitosValidos = proyectoActual.circuitos.filter(c => c.valido).length;
   const circuitosTotal = proyectoActual.circuitos.length;
   
-  const advertencia = circuitosValidos < circuitosTotal 
-    ? `⚠️ ${circuitosTotal - circuitosValidos} circuito(s) con caída excesiva` 
-    : '✓ Todos los circuitos cumplen normativa AEA';
+  const circuitosFueraTabla = proyectoActual.circuitos.filter(c => c.conductor === '>70').length;
+  const circuitosCaidaExcesiva = circuitosTotal - circuitosValidos - circuitosFueraTabla;
+
+  let advertenciaCaida = '✓ Todos los circuitos cumplen la caída de tensión admitida';
+  if (circuitosFueraTabla > 0 && circuitosCaidaExcesiva > 0) {
+    advertenciaCaida = `⚠️ ${circuitosCaidaExcesiva} circuito(s) con caída excesiva, ${circuitosFueraTabla} fuera de tabla (>200A)`;
+  } else if (circuitosFueraTabla > 0) {
+    advertenciaCaida = `⚠️ ${circuitosFueraTabla} circuito(s) con corriente fuera de tabla (>200A) — requieren cálculo especial de un profesional`;
+  } else if (circuitosCaidaExcesiva > 0) {
+    advertenciaCaida = `⚠️ ${circuitosCaidaExcesiva} circuito(s) con caída excesiva`;
+  }
+
+  // NUEVO: valida que la potencia contratada alcance para la suma de
+  // circuitos cargados. No aplica factor de simultaneidad (la app no lo
+  // calcula todavía) — es una comparación directa carga instalada vs.
+  // potencia contratada, por eso puede ser conservadora.
+  let advertenciaPotencia = '';
+  if (proyectoActual.potenciaTotal > 0) {
+    if (totalPotencia > proyectoActual.potenciaTotal) {
+      advertenciaPotencia = `<div class="stat alerta-potencia" style="grid-column: 1/-1;">
+        ⚠️ La suma de circuitos (${totalPotencia.toFixed(2)} kW) supera la potencia contratada
+        (${proyectoActual.potenciaTotal} kW). Gestionar aumento de potencia o revisar cargas.
+      </div>`;
+    }
+  }
   
   resumenBox.innerHTML = `
     <div class="stats-grid">
       <div class="stat"><span class="label">Total Circuitos:</span><span class="value">${circuitosTotal}</span></div>
       <div class="stat"><span class="label">Potencia total:</span><span class="value">${totalPotencia.toFixed(2)} kW</span></div>
       <div class="stat"><span class="label">Corriente Total:</span><span class="value">${totalCorriente.toFixed(2)} A</span></div>
-      <div class="stat" style="grid-column: 1/-1;"><span class="label">${advertencia}</span></div>
+      <div class="stat" style="grid-column: 1/-1;"><span class="label">${advertenciaCaida}</span></div>
+      ${advertenciaPotencia}
+      <div class="stat nota-diferencial" style="grid-column: 1/-1;">
+        ℹ️ Todo tablero debe protegerse con interruptor diferencial (ID) de 30mA
+        aguas arriba de las térmicas, conforme AEA 90364-4-41. Verificar sensibilidad
+        reforzada en ambientes húmedos (baño, exterior).
+      </div>
     </div>
   `;
 }
 
-function exportarPDF() { window.print(); }
+// NUEVO: arma el encabezado del informe (fecha + resumen del sistema
+// configurado) justo antes de imprimir/exportar, para que el PDF se
+// vea como un informe técnico y no como una captura de la web.
+function prepararEncabezadoImpresion() {
+  const printMeta = document.getElementById('printMeta');
+  const fecha = new Date().toLocaleString('es-AR', {
+    day: '2-digit', month: '2-digit', year: 'numeric',
+    hour: '2-digit', minute: '2-digit'
+  });
+
+  let sistemaHTML = '<span style="opacity:0.6">Sistema no configurado</span>';
+  if (proyectoActual.tipoSistema) {
+    sistemaHTML = `
+      ${proyectoActual.tipoSistema.toUpperCase()} ·
+      Potencia contratada: <strong>${proyectoActual.potenciaTotal} kW</strong> ·
+      cos φ: <strong>${proyectoActual.factorPotencia}</strong> ·
+      Acometida: <strong>${proyectoActual.longitudPrincipal} m</strong>
+    `;
+  }
+
+  printMeta.innerHTML = `
+    <div class="print-meta-row"><strong>Fecha del informe:</strong> ${fecha}</div>
+    <div class="print-meta-row"><strong>Configuración del sistema:</strong> ${sistemaHTML}</div>
+  `;
+}
+
+function exportarPDF() {
+  prepararEncabezadoImpresion();
+  window.print();
+}
 
 function limpiarTodo() {
   if (confirm('¿Eliminar todo el proyecto? Esta acción no se puede deshacer.')) {
@@ -354,7 +538,16 @@ function initApp() {
   
   document.getElementById('btnConfigurar').addEventListener('click', configurarSistema);
   document.getElementById('circuitForm').addEventListener('submit', agregarCircuito);
-  document.getElementById('btnLimpiarForm').addEventListener('click', () => document.getElementById('circuitForm').reset());
+  document.getElementById('btnLimpiarForm').addEventListener('click', () => {
+    document.getElementById('circuitForm').reset();
+    toggleGrupoTipoTomacorriente();
+  });
+
+  // NUEVO: el selector de tipo de tomacorriente solo tiene sentido
+  // cuando el circuito elegido es "Tomacorriente"; se oculta para el resto.
+  document.getElementById('tipoCircuito').addEventListener('change', toggleGrupoTipoTomacorriente);
+  document.getElementById('tipoCircuito').addEventListener('change', actualizarCaidaSugerida);
+  toggleGrupoTipoTomacorriente();
   document.getElementById('btnExport').addEventListener('click', exportarPDF);
   document.getElementById('btnLimpiarTodo').addEventListener('click', limpiarTodo);
   
