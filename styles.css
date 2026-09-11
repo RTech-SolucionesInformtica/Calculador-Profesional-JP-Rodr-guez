@@ -13,6 +13,7 @@
   --border-color: rgba(255, 234, 0, 0.15);
   --success: #00E676;
   --danger: #FF1744;
+  --warning: #FFB300; /* NUEVO: amarillo de advertencia del semáforo, distinto del amarillo de marca (--primary) */
 }
 
 * {
@@ -21,6 +22,8 @@
 
 html, body {
   height: 100%;
+  width: 100%;
+  max-width: 100vw;
   margin: 0;
   padding: 0;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -29,6 +32,13 @@ html, body {
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
   overflow-x: hidden;
+  /* Evita que los WebView de Android (muy común en MIUI/Xiaomi) reescalen
+     automáticamente el tamaño del texto al empaquetar la web como app,
+     lo cual descuadra el ancho real de inputs/selects y los corta a la
+     derecha de la pantalla, tal como se ve en apps instaladas desde APK. */
+  -webkit-text-size-adjust: 100%;
+  -moz-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 
 /* Fallback para navegadores que NO soportan backdrop-filter
@@ -56,6 +66,11 @@ html, body {
   top: 0;
   z-index: 100;
   box-shadow: 0 4px 30px rgba(255, 234, 0, 0.15);
+  /* Respeta el notch / cámara perforada / barra de estado en dispositivos
+     con pantalla "edge-to-edge" (ya que el viewport usa viewport-fit=cover) */
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-left: env(safe-area-inset-left, 0px);
+  padding-right: env(safe-area-inset-right, 0px);
 }
 
 .header-inner {
@@ -74,8 +89,12 @@ html, body {
 }
 
 .logo svg {
-  width: 60px;
-  height: 60px;
+  /* Escala fluida: mínimo 40px (celulares chicos), máximo 60px (desktop),
+     y en el medio crece según el ancho de la ventana (5vw). Reemplaza
+     el tamaño fijo anterior para que se vea proporcionado en cualquier
+     dispositivo sin necesitar un breakpoint para cada ancho. */
+  width: clamp(40px, 5vw, 60px);
+  height: clamp(40px, 5vw, 60px);
   filter: drop-shadow(0 0 12px rgba(255, 234, 0, 0.6));
   transition: transform 0.3s ease;
 }
@@ -113,12 +132,19 @@ html, body {
    DISEÑO GRID ADAPTATIVO MODERNO
    ============================================ */
 .app {
+  width: 100%;
   max-width: 1400px;
   margin: 24px auto;
   display: grid;
-  grid-template-columns: 1fr; /* Móviles */
+  grid-template-columns: minmax(0, 1fr); /* Móviles: minmax(0,..) evita que el
+    contenido interno fuerce el ancho de la columna más allá de la pantalla */
   gap: 20px;
   padding: 0 24px;
+  /* Suma el margen seguro en pantallas con bordes curvos o notch lateral
+     (ej. celulares en horizontal) sin perder el padding base de 24px */
+  padding-left: max(24px, env(safe-area-inset-left, 0px));
+  padding-right: max(24px, env(safe-area-inset-right, 0px));
+  box-sizing: border-box;
   min-height: calc(100vh - 200px); /* fallback para navegadores sin soporte de dvh */
   min-height: calc(100dvh - 200px); /* se ajusta a la barra de direcciones en móviles */
 }
@@ -134,26 +160,29 @@ html, body {
 
 @media (min-width: 1024px) {
   .app {
-    grid-template-columns: 1fr 1.2fr 1.5fr; /* Computadoras */
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr) minmax(0, 1.5fr); /* Computadoras */
   }
 }
 
 @media (min-width: 768px) and (max-width: 1023px) {
   .app {
-    grid-template-columns: 1fr 1.2fr; /* Tablets */
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); /* Tablets */
   }
   .results-panel {
     grid-column: span 2;
   }
 }
 
-.config-panel, .circuits-panel, .results-panel {
+.config-panel, .circuits-panel, .results-panel, .checklist-panel {
   display: flex;
   flex-direction: column;
   gap: 16px;
   min-width: 0; /* clave: evita que el contenido interno (ej. la tabla ancha)
                    fuerce el ancho de la columna del grid y se corte por el
                    overflow-x:hidden del body */
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 /* ============================================
@@ -169,6 +198,15 @@ html, body {
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4),
               inset 0 1px 0 rgba(255, 234, 0, 0.1);
   transition: all 0.3s ease;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow-x: hidden; /* resguardo extra: ningún hijo puede sobresalir del panel */
+}
+
+.form-group {
+  width: 100%;
+  max-width: 100%;
 }
 
 .panel:hover {
@@ -192,17 +230,44 @@ html, body {
   font-size: 11px;
   font-weight: 700;
   text-transform: uppercase;
+  overflow-wrap: break-word;
+}
+
+.form-group small {
+  display: block;
+  overflow-wrap: break-word;
+  word-break: break-word;
 }
 
 .form-group input, .form-group select {
   width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
   padding: 12px 14px;
   border-radius: 10px;
   border: 1px solid rgba(255, 234, 0, 0.1);
   background: rgba(5, 8, 17, 0.8);
   color: var(--text-primary);
-  font-size: 14px;
+  /* 16px es el mínimo que evita que iOS Safari haga zoom automático al
+     tocar el campo (con menos de 16px, el iPhone "salta" de tamaño y
+     descuadra toda la vista al enfocar un input). */
+  font-size: 16px;
   transition: all 0.3s ease;
+  /* Anula el ancho "nativo" que algunos WebView de Android (MIUI, apps
+     empaquetadas desde APK) le imponen al <select> según el largo de
+     sus opciones, ignorando el width:100% de arriba. */
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+}
+
+.form-group select {
+  background-image: linear-gradient(45deg, transparent 50%, var(--primary) 50%),
+                     linear-gradient(135deg, var(--primary) 50%, transparent 50%);
+  background-position: calc(100% - 20px) center, calc(100% - 15px) center;
+  background-size: 5px 5px, 5px 5px;
+  background-repeat: no-repeat;
+  padding-right: 36px; /* deja lugar a la flechita dibujada arriba */
 }
 
 .form-group input:focus, .form-group select:focus {
@@ -210,6 +275,20 @@ html, body {
   border-color: var(--primary);
   box-shadow: 0 0 0 4px rgba(255, 234, 0, 0.2);
   transform: translateY(-1px);
+}
+
+/* CORREGIDO: esta clase no tenía ninguna regla propia (más allá de
+   ocultarse al imprimir), así que los botones "Agregar/Limpiar" del
+   formulario de circuitos y "Actualizar/Reiniciar checklist" dependían
+   del comportamiento default de inline-block. En pantallas angostas
+   (320-375px) esos pares de botones podían envolver a una segunda línea
+   sin ningún margen entre ellos, a diferencia de .actions-export que sí
+   tenía este mismo tratamiento. */
+.form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 8px;
 }
 
 /* Botones con efectos */
@@ -356,6 +435,50 @@ td {
   margin-top: 16px;
 }
 
+/* NUEVO: semáforo consolidado del proyecto (verde/amarillo/rojo).
+   Vacío (sin clase de nivel) cuando todavía no hay circuitos cargados. */
+.semaforo-box {
+  border-radius: 10px;
+  padding: 16px 20px;
+  margin-top: 16px;
+  border: 1px solid transparent;
+}
+
+.semaforo-box:empty {
+  display: none;
+}
+
+.semaforo-titulo {
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  opacity: 0.8;
+  margin-bottom: 4px;
+}
+
+.semaforo-mensaje {
+  font-weight: bold;
+  font-size: 15px;
+}
+
+.semaforo-verde {
+  background: linear-gradient(135deg, rgba(0, 230, 118, 0.12), rgba(0, 230, 118, 0.04));
+  border-color: rgba(0, 230, 118, 0.35);
+}
+.semaforo-verde .semaforo-mensaje { color: var(--success); }
+
+.semaforo-amarillo {
+  background: linear-gradient(135deg, rgba(255, 179, 0, 0.14), rgba(255, 179, 0, 0.05));
+  border-color: rgba(255, 179, 0, 0.4);
+}
+.semaforo-amarillo .semaforo-mensaje { color: var(--warning); }
+
+.semaforo-rojo {
+  background: linear-gradient(135deg, rgba(255, 23, 68, 0.14), rgba(255, 23, 68, 0.05));
+  border-color: rgba(255, 23, 68, 0.4);
+}
+.semaforo-rojo .semaforo-mensaje { color: var(--danger); }
+
 .actions-export {
   display: flex;
   gap: 12px;
@@ -377,6 +500,9 @@ td {
   background: linear-gradient(180deg, rgba(5, 8, 17, 0.95), rgba(13, 20, 38, 0.98));
   border-top: 2px solid var(--primary);
   padding: 20px 24px;
+  padding-bottom: max(20px, env(safe-area-inset-bottom, 0px));
+  padding-left: max(24px, env(safe-area-inset-left, 0px));
+  padding-right: max(24px, env(safe-area-inset-right, 0px));
   margin-top: 40px;
 }
 
@@ -403,14 +529,14 @@ td {
 .whatsapp-btn {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 16px;
-  border-radius: 8px;
+  gap: 10px;
+  padding: 12px 22px;
+  border-radius: 10px;
   background: linear-gradient(135deg, rgba(37, 211, 102, 0.15), rgba(37, 211, 102, 0.08));
   color: #25D366;
   text-decoration: none;
   border: 1px solid rgba(37, 211, 102, 0.3);
-  font-size: 12px;
+  font-size: 15px;
   font-weight: 700;
   transition: all 0.3s ease;
   white-space: nowrap;
@@ -424,8 +550,8 @@ td {
 }
 
 .whatsapp-btn svg {
-  width: 18px;
-  height: 18px;
+  width: 24px;
+  height: 24px;
 }
 
 /* ============================================================
@@ -443,6 +569,8 @@ td {
   .app {
     margin: 12px auto;
     padding: 0 12px;
+    padding-left: max(12px, env(safe-area-inset-left, 0px));
+    padding-right: max(12px, env(safe-area-inset-right, 0px));
   }
 
   /* Arreglo para el Header: Apila el Logo y los Títulos verticalmente */
@@ -478,6 +606,18 @@ td {
     text-align: center;
   }
 
+  /* Mismo criterio para los otros dos grupos de botones (circuitForm y
+     checklist 770): a ancho completo y apilados en vez de envolver
+     pegados uno al lado del otro. */
+  .form-actions {
+    flex-direction: column;
+  }
+
+  .form-actions .btn {
+    width: 100%;
+    text-align: center;
+  }
+
   /* Arreglo para el Footer: Apila el copyright y el botón de WhatsApp */
   .footer-content {
     flex-direction: column-reverse; /* El botón de WhatsApp queda arriba para mejor acceso táctil */
@@ -488,7 +628,7 @@ td {
   .whatsapp-btn {
     width: 100%;
     justify-content: center;
-    padding: 12px 16px; /* Botón más grande para pulsar en móvil */
+    padding: 16px 16px; /* Botón más grande para pulsar en móvil */
   }
 }
 
@@ -518,7 +658,13 @@ td {
   }
 
   @page {
-    margin: 16mm 14mm;
+    /* CORREGIDO: con 10 columnas de datos (Tipo, Toma, Ambiente, Potencia,
+       I(A), Cable, Térmica, Agrup., PE, Caída) la hoja vertical se quedaba
+       corta de ancho y Chrome directamente cortaba las columnas de la
+       derecha (se veía en el preview de impresión). Apaisado le da casi
+       el doble de ancho disponible a la tabla. */
+    size: landscape;
+    margin: 14mm 12mm;
   }
 
   body {
@@ -595,26 +741,54 @@ td {
     border-collapse: collapse;
     width: 100%;
     font-size: 12px;
+    /* CORREGIDO: table-layout "auto" (el default) deja que una sola celda
+       con texto largo (ej. el aviso "⚠️ Corriente fuera de tabla...")
+       empuje TODA la tabla más ancha que la hoja impresa, y esa parte
+       terminaba directamente cortada/invisible en el PDF/impresión.
+       Con "fixed" las columnas reparten el ancho disponible entre sí y
+       el texto largo se ajusta con salto de línea en vez de desbordar. */
+    table-layout: fixed;
   }
   th {
     background: #1a1a1a !important;
     color: white !important;
-    padding: 8px 10px;
+    padding: 8px 6px;
     border: 1px solid #1a1a1a;
     text-transform: uppercase;
     letter-spacing: 0.4px;
-    font-size: 11px;
+    font-size: 10px;
+    overflow-wrap: break-word;
   }
   td {
-    padding: 8px 10px;
+    padding: 8px 6px;
     border: 1px solid #ccc;
     color: #1a1a1a !important;
+    /* Necesario junto con table-layout:fixed para que el contenido largo
+       (nombres de ambiente, avisos de caída de tensión) baje de línea en
+       vez de desbordar la celda hacia afuera de la hoja. */
+    overflow-wrap: break-word;
+    word-break: break-word;
   }
   tbody tr:nth-child(even) td {
     background: #f5f5f5;
   }
   .valido { color: #0a7a2f !important; font-weight: bold; }
   .invalido { color: #b3001b !important; font-weight: bold; }
+
+  /* NUEVO: semáforo consolidado, adaptado a fondo blanco de impresión.
+     page-break-inside:avoid para que no se corte entre dos hojas. */
+  .semaforo-box {
+    background: #fafafa !important;
+    border: 1px solid #ccc !important;
+    page-break-inside: avoid;
+  }
+  .semaforo-verde { border-left: 5px solid #0a7a2f !important; }
+  .semaforo-amarillo { border-left: 5px solid #a66a00 !important; }
+  .semaforo-rojo { border-left: 5px solid #b3001b !important; }
+  .semaforo-verde .semaforo-mensaje { color: #0a7a2f !important; }
+  .semaforo-amarillo .semaforo-mensaje { color: #a66a00 !important; }
+  .semaforo-rojo .semaforo-mensaje { color: #b3001b !important; }
+  .semaforo-titulo { color: #333 !important; }
 
   /* La columna Acción (botón eliminar) no tiene sentido en un informe impreso */
   th:last-child, td:last-child { display: none; }
@@ -634,6 +808,9 @@ td {
   .logo svg path[stroke="#FFEA00"],
   .logo svg line[stroke="#FFEA00"] {
     stroke: #B8860C !important;
+  }
+  .logo svg text[fill="#FFEA00"] {
+    fill: #B8860C !important;
   }
   .logo svg {
     filter: none;
@@ -672,5 +849,85 @@ td {
     text-align: center;
   }
 
+  /* NUEVO: línea de copyright/crédito del desarrollador, separada del
+     párrafo de disclaimer técnico (que ya tenía #printFooter) para que no
+     quede todo corrido en un mismo bloque de texto. */
+  #printFooterCredito {
+    margin-top: 8px;
+    font-size: 10px;
+    color: #888;
+  }
+
   .footer { display: none; }
 }
+
+/* ============================================
+   NUEVO BLOQUE ADITIVO — CHECKLIST AEA 90364-7-770
+   No modifica ninguna regla existente; solo agrega
+   estilos para el panel de checklist normativo.
+   ============================================ */
+.checklist-panel {
+  grid-column: 1 / -1;
+}
+
+.checklist-intro {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin: 0 0 4px 0;
+}
+
+.checklist-group {
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  padding: 16px;
+  background: rgba(255, 234, 0, 0.02);
+  margin-bottom: 16px;
+}
+
+.checklist-group h3 {
+  margin: 0 0 12px 0;
+  font-size: 13px;
+  color: var(--primary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.checklist-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 13px;
+  margin-bottom: 10px;
+  cursor: pointer;
+}
+
+.checklist-item input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  margin-top: 1px;
+  accent-color: var(--primary);
+}
+
+.checklist-result {
+  font-size: 13px;
+  margin-top: 8px;
+}
+
+.checklist-result-row {
+  padding: 6px 0;
+  border-bottom: 1px dashed rgba(255, 234, 0, 0.08);
+}
+/* NUEVO — módulo 770.7.III (puntos mínimos de utilización por ambiente).
+   Reutiliza el mismo criterio visual de #tableWrap para que la tabla
+   de ambientes tenga scroll horizontal en mobile, sin modificar la
+   regla original. */
+#tableWrapAmbientes770 {
+  overflow-x: auto;
+  max-width: 100%;
+  border-radius: 10px;
+  border: 1px solid var(--border-color);
+  -webkit-overflow-scrolling: touch;
+  margin-top: 10px;
+}
+
