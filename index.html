@@ -1,504 +1,1078 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <meta name="theme-color" content="#050811">
-  <title>Calculador de Cableado Residencial AEA - Esc. José Martí</title>
-  <link rel="stylesheet" href="styles.css">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Calculadora Eléctrica Profesional</title>
+<style>
+  :root{
+    --blue:#059669; --blue-dark:#065f46; --bg:#f1f5f9; --card:#ffffff;
+    --border:#e2e8f0; --text:#0f172a; --muted:#64748b;
+    --danger:#dc2626; --ok:#16a34a; --warn:#d97706;
+  }
+  *{box-sizing:border-box;}
+  html{-webkit-text-size-adjust:100%;text-size-adjust:100%;}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--text);padding:24px;overflow-x:hidden;}
+  .table-scroll{width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch;}
+  .table-scroll table{min-width:480px;}
+  .topbar{max-width:1100px;margin:0 auto 4px;display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px;}
+  h1{font-size:22px;margin:0 0 4px 0;}
+  .proyecto-input{border:none;background:transparent;font-size:14px;color:var(--muted);padding:2px 0;border-bottom:1px dashed var(--border);width:280px;}
+  .proyecto-input:focus{outline:none;border-bottom-color:var(--blue);}
+  .subtitle{color:var(--muted);font-size:14px;margin-bottom:16px;max-width:1100px;margin-left:auto;margin-right:auto;}
+  #datosTrabajoCard{max-width:1100px;margin:0 auto 16px;}
+  #datosTrabajoCard .campos{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;}
+  @media (max-width:800px){ #datosTrabajoCard .campos{grid-template-columns:1fr;} }
+  #datosTrabajoCard label{margin-top:0;}
+  .tabs{max-width:1100px;margin:0 auto 16px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;}
+  .tab-btn{position:relative;padding:10px 32px 10px 14px;border-radius:8px;border:1px solid var(--border);background:#fff;cursor:pointer;font-size:13px;font-weight:600;color:var(--text);min-height:40px;}
+  .tab-btn.active{background:var(--blue);border-color:var(--blue);color:#fff;}
+  .tab-close{position:absolute;right:2px;top:50%;transform:translateY(-50%);background:none;border:none;font-size:14px;cursor:pointer;color:inherit;opacity:0.7;width:26px;height:26px;display:flex;align-items:center;justify-content:center;}
+  .tab-close:hover{opacity:1;}
+  .add-tab-btn{padding:10px 14px;border-radius:8px;border:1px dashed var(--blue);background:none;color:var(--blue);font-weight:700;cursor:pointer;font-size:13px;min-height:40px;}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:20px;max-width:1100px;margin:0 auto;}
+  @media (max-width:800px){ .grid{grid-template-columns:1fr;} }
+  .card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:22px;}
+  .card h2{font-size:16px;margin:0 0 16px 0;}
+  label{display:block;font-size:13px;font-weight:600;margin-bottom:6px;margin-top:16px;}
+  label:first-of-type{margin-top:0;}
+  .hint{font-size:11px;color:var(--muted);font-weight:400;margin-top:2px;}
+  select, input[type="number"], input[type="text"]{width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:8px;font-size:16px;background:#fff;color:var(--text);}
+  select:focus, input:focus{outline:2px solid var(--blue);outline-offset:1px;}
+  input[type="range"]{width:100%;accent-color:var(--blue);}
+  .factor-row{display:flex;justify-content:space-between;font-size:13px;font-weight:600;}
+  .factor-value{color:var(--blue);}
+  .btn-group{display:flex;gap:8px;margin-top:8px;}
+  .factor-btn{flex:1;padding:10px 6px;border:1px solid var(--border);border-radius:8px;background:#fff;text-align:center;cursor:pointer;font-size:13px;}
+  .factor-btn strong{display:block;font-size:14px;}
+  .factor-btn.active{background:var(--blue);border-color:var(--blue);color:#fff;}
+  table{width:100%;border-collapse:collapse;margin-top:8px;font-size:13px;}
+  th{text-align:left;color:var(--muted);font-weight:600;padding:6px 4px;border-bottom:1px solid var(--border);}
+  td{padding:6px 4px;vertical-align:middle;}
+  td input{padding:7px 8px;font-size:13px;}
+  .total-cell{white-space:nowrap;font-weight:600;}
+  .del-btn{background:none;border:none;color:var(--danger);cursor:pointer;font-size:18px;padding:8px 10px;min-height:38px;min-width:38px;}
+  .add-row-btn{margin-top:10px;background:none;border:1px dashed var(--border);border-radius:8px;padding:8px 12px;width:100%;color:var(--blue);font-weight:600;cursor:pointer;font-size:13px;}
+  .result-empty{color:var(--muted);font-size:14px;}
+  .result-row{display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border);font-size:14px;gap:10px;}
+  .result-row:last-child{border-bottom:none;}
+  .result-row .val{font-weight:700;text-align:right;}
+  .badge{display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:600;margin-left:6px;white-space:nowrap;}
+  .badge.ok{background:#dcfce7;color:var(--ok);}
+  .badge.warn{background:#fef3c7;color:var(--warn);}
+  .badge.info{background:#d1fae5;color:var(--blue-dark);}
+  .note{margin-top:16px;font-size:12px;color:var(--muted);line-height:1.5;border-top:1px solid var(--border);padding-top:12px;}
+  .export-btn{display:inline-flex;align-items:center;gap:6px;background:var(--blue);color:#fff;border:none;border-radius:8px;padding:9px 16px;font-size:13px;font-weight:600;cursor:pointer;}
+  .export-btn:hover{background:var(--blue-dark);}
+  .diagrama-box{margin-top:16px;padding-top:12px;border-top:1px solid var(--border);}
+  .diagrama-box h3{font-size:13px;margin:0 0 8px 0;color:var(--muted);}
+  #resumenCard{max-width:1100px;margin:20px auto 0;}
+  #resumenTabla th, #resumenTabla td{white-space:nowrap;}
+  .print-only{display:none;}
+
+  .dev-footer{max-width:1100px;margin:28px auto 0;text-align:center;font-size:12px;color:var(--muted);padding:14px 0 4px;border-top:1px solid var(--border);}
+  .dev-footer strong{color:var(--text);}
+
+  .whatsapp-float{position:fixed;bottom:22px;right:22px;width:56px;height:56px;background:#25d366;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 14px rgba(0,0,0,.25);z-index:999;text-decoration:none;}
+  .whatsapp-float:hover{background:#20bd5a;}
+  .whatsapp-float svg{width:30px;height:30px;fill:#fff;}
+
+  /* ---- Reporte PDF: informe técnico formal ---- */
+  .print-report{background:#fff;color:#0f172a;}
+  .informe-header{background:var(--blue-dark);color:#fff;border-radius:10px;padding:18px 20px;text-align:center;margin-bottom:18px;}
+  .informe-header .ih-title{font-size:18px;font-weight:800;letter-spacing:.3px;margin:0 0 4px;}
+  .informe-header .ih-sub{font-size:11.5px;opacity:.9;margin:0 0 2px;}
+  .informe-header .ih-fecha{font-size:11px;opacity:.85;}
+
+  .datos-trabajo{border:1px solid #cbd5e1;border-radius:10px;padding:14px 18px;margin-bottom:20px;}
+  .datos-trabajo .dt-title{font-weight:800;font-size:12.5px;color:var(--blue-dark);border-bottom:1px solid #cbd5e1;padding-bottom:8px;margin-bottom:10px;}
+  .datos-trabajo .dt-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px 24px;font-size:12px;}
+  .datos-trabajo .dt-grid span.lbl{font-weight:700;color:#334155;}
+
+  .circuito-page{break-inside:avoid;break-before:page;margin-bottom:4px;}
+  .circuito-page:first-of-type{break-before:auto;}
+  .circuito-bar{background:var(--blue-dark);color:#fff;border-radius:8px 8px 0 0;padding:9px 16px;display:flex;justify-content:space-between;align-items:center;font-size:13px;font-weight:700;}
+  .circuito-body{border:1px solid #cbd5e1;border-top:none;border-radius:0 0 8px 8px;padding:14px 18px 18px;margin-bottom:18px;}
+  .info-row{display:flex;gap:26px;font-size:12px;margin-bottom:12px;flex-wrap:wrap;}
+  .info-row b{color:#0f172a;}
+  .info-row .lbl{color:#334155;font-weight:700;}
+
+  .artefactos-table{width:100%;border-collapse:collapse;font-size:12px;margin-bottom:10px;}
+  .artefactos-table th{text-align:left;background:#f1f5f9;color:#334155;padding:6px 8px;border-bottom:1px solid #cbd5e1;}
+  .artefactos-table td{padding:6px 8px;border-bottom:1px solid #e2e8f0;}
+
+  .potencia-line{font-size:12px;display:flex;gap:26px;margin-bottom:14px;color:#334155;flex-wrap:wrap;}
+  .potencia-line b{color:#0f172a;}
+
+  .estado-box{border-radius:8px;padding:12px 14px;text-align:center;margin-bottom:12px;color:#fff;background:#16a34a;}
+  .estado-box.fuera{background:#dc2626;}
+  .estado-box .eb-linea1{font-weight:800;font-size:13px;margin-bottom:3px;}
+  .estado-box .eb-linea2{font-size:11.5px;opacity:.95;}
+
+  .estado-detalle{font-size:12px;margin-bottom:16px;}
+  .estado-detalle .ed-row{margin-bottom:4px;}
+  .estado-detalle .lbl{font-weight:700;color:#334155;}
+  .estado-detalle .ok-txt{color:#16a34a;font-weight:700;}
+  .estado-detalle .warn-txt{color:#dc2626;font-weight:700;}
+
+  .diagrama-titulo{font-size:12px;font-weight:800;color:var(--blue-dark);border-bottom:2px solid var(--blue-dark);padding-bottom:5px;margin-bottom:10px;display:inline-block;}
+
+  .resumen-general{margin-top:24px;break-inside:avoid;}
+  .resumen-general .rg-titulo{font-size:13px;font-weight:800;color:var(--blue-dark);border-bottom:2px solid var(--blue-dark);padding-bottom:6px;margin-bottom:12px;display:inline-block;}
+  .resumen-general table{width:100%;border-collapse:collapse;font-size:12px;}
+  .resumen-general th{text-align:left;background:var(--blue-dark);color:#fff;padding:8px 10px;}
+  .resumen-general td{padding:7px 10px;border-bottom:1px solid #e2e8f0;}
+  .resumen-general tr.total-row td{font-weight:800;background:#f1f5f9;border-top:2px solid var(--blue-dark);border-bottom:none;}
+  .resumen-general td.estado-ok{color:#16a34a;font-weight:700;}
+  .resumen-general td.estado-warn{color:#dc2626;font-weight:700;}
+
+  .materiales-page{break-before:page;border:2px solid #facc15;border-radius:12px;padding:20px 22px;}
+  .materiales-page .mp-titulo{font-size:12.5px;font-weight:800;color:var(--blue-dark);border-bottom:2px solid var(--blue-dark);padding-bottom:6px;margin:18px 0 10px;display:block;}
+  .materiales-page .mp-titulo:first-child{margin-top:0;}
+  .materiales-page table{width:100%;border-collapse:collapse;font-size:12px;margin-bottom:6px;}
+  .materiales-page th{text-align:left;background:var(--blue-dark);color:#fff;padding:7px 10px;}
+  .materiales-page td{padding:6px 10px;border-bottom:1px solid #e2e8f0;}
+  .materiales-page .mp-nota{font-size:10px;color:#64748b;font-style:italic;margin-bottom:6px;}
+  .materiales-page .mp-obs{font-size:12px;color:#0f172a;min-height:36px;white-space:pre-wrap;}
+  .materiales-page .mp-firmas{display:flex;justify-content:space-between;gap:40px;margin-top:34px;}
+  .materiales-page .mp-firma{flex:1;text-align:center;font-size:11px;color:#334155;border-top:1px solid #94a3b8;padding-top:6px;}
+
+  .print-footnote{font-size:10px;color:#64748b;line-height:1.5;margin-top:8px;text-align:center;}
+
+  @media print{
+    html,body{background:#fff !important;padding:0;}
+    .app-ui{display:none !important;}
+    .whatsapp-float{display:none !important;}
+    .print-only{display:block !important;}
+    *{-webkit-print-color-adjust:exact !important;print-color-adjust:exact !important;color-adjust:exact !important;}
+  }
+
+  /* ---- Pantallas chicas / gama baja: menos padding, texto legible sin desbordes ---- */
+  @media (max-width:480px){
+    body{padding:12px;}
+    h1{font-size:19px;}
+    .card{padding:14px;border-radius:10px;}
+    .subtitle{font-size:12.5px;}
+    .proyecto-input{width:100%;}
+    .topbar{flex-direction:column;align-items:stretch;}
+    .export-btn{width:100%;justify-content:center;}
+    .tabs{gap:6px;}
+    .btn-group{flex-wrap:wrap;}
+    .factor-btn{flex:1 1 45%;}
+    .whatsapp-float{width:48px;height:48px;bottom:14px;right:14px;}
+    .whatsapp-float svg{width:26px;height:26px;}
+  }
+</style>
 </head>
 <body>
 
-<header class="site-header">
-  <div class="header-inner">
-    <!-- Logo Vectorial: Multímetro Eléctrico Profesional -->
-    <div class="logo">
-      <svg viewBox="0 0 100 104" xmlns="http://www.w3.org/2000/svg">
-        <!-- Protector de goma (bumper) asomando detrás de la carcasa -->
-        <rect x="20.5" y="11.5" width="59" height="77" rx="11" fill="#14202e"/>
-        <!-- Estructura del Multímetro -->
-        <rect x="25" y="15" width="50" height="70" rx="8" fill="#FFEA00" stroke="#050811" stroke-width="3"/>
-        <!-- Textura de agarre lateral del bumper -->
-        <line x1="22.2" y1="28" x2="22.2" y2="72" stroke="#0a1220" stroke-width="1.8" stroke-linecap="round" stroke-dasharray="2.4 2.6"/>
-        <line x1="77.8" y1="28" x2="77.8" y2="72" stroke="#0a1220" stroke-width="1.8" stroke-linecap="round" stroke-dasharray="2.4 2.6"/>
-        <!-- Tornillos de la carcasa -->
-        <circle cx="30" cy="19.5" r="1.3" fill="#050811"/>
-        <circle cx="70" cy="19.5" r="1.3" fill="#050811"/>
-        <circle cx="30" cy="80.5" r="1.3" fill="#050811"/>
-        <circle cx="70" cy="80.5" r="1.3" fill="#050811"/>
-        <!-- Pantalla Digital LCD -->
-        <rect x="31" y="22.5" width="38" height="17" rx="1.8" fill="#16232f" stroke="#050811" stroke-width="1.5"/>
-        <!-- Indicador de modo (AC) y batería, arriba de la pantalla -->
-        <text x="34" y="27" font-family="Arial, Helvetica, sans-serif" font-size="4" font-weight="bold" fill="#FFEA00">AC</text>
-        <rect x="60.5" y="24.3" width="6" height="3" rx="0.6" fill="none" stroke="#FFEA00" stroke-width="0.7"/>
-        <rect x="66.5" y="25.1" width="1" height="1.4" fill="#FFEA00"/>
-        <!-- Lectura digital real: 220V -->
-        <text x="35.5" y="37" font-family="'Courier New', Consolas, monospace" font-size="10.5" font-weight="bold" fill="#FFEA00">220<tspan font-size="6" dx="0.5" dy="-3.2">V</tspan></text>
-        <!-- Rueda Selectora de Medición, con marcas de posición -->
-        <circle cx="50" cy="57" r="12.5" fill="#0a1220" stroke="#050811" stroke-width="1.2"/>
-        <circle cx="50" cy="57" r="12.5" fill="none" stroke="#FFEA00" stroke-width="0.6" stroke-dasharray="0.8 3.3"/>
-        <!-- Puntos de rango de colores (V~, V=, Ω, continuidad) -->
-        <circle cx="50" cy="46.2" r="1" fill="#FF1744"/>
-        <circle cx="59.4" cy="51.6" r="1" fill="#38bdf8"/>
-        <circle cx="59.4" cy="62.4" r="1" fill="#facc15"/>
-        <circle cx="40.6" cy="62.4" r="1" fill="#34d399"/>
-        <line x1="50" y1="57" x2="50" y2="47.5" stroke="#FFEA00" stroke-width="2.3" stroke-linecap="round"/>
-        <circle cx="50" cy="57" r="2.2" fill="#FFEA00"/>
-        <circle cx="49.3" cy="56.3" r="0.7" fill="#fff8d6" opacity="0.75"/>
-        <!-- Puertos de las Sondas (Bornes COM, V, mA) -->
-        <circle cx="38" cy="75" r="3" fill="#16232f" stroke="#050811" stroke-width="0.8"/>
-        <circle cx="50" cy="75" r="3" fill="#16232f" stroke="#050811" stroke-width="0.8"/>
-        <circle cx="62" cy="75" r="3" fill="#FF1744" stroke="#050811" stroke-width="0.8"/>
-        <circle cx="38" cy="75" r="1.1" fill="#0a1220"/>
-        <circle cx="50" cy="75" r="1.1" fill="#0a1220"/>
-        <circle cx="62" cy="75" r="1.1" fill="#7a0011"/>
-        <!-- Conectores tipo banana antes del cable -->
-        <rect x="36.3" y="77.5" width="3.4" height="3.6" rx="0.9" fill="#334155" stroke="#050811" stroke-width="0.5"/>
-        <rect x="60.3" y="77.5" width="3.4" height="3.6" rx="0.9" fill="#7a0011" stroke="#050811" stroke-width="0.5"/>
-        <!-- Cables de Prueba: efecto cilíndrico con contorno y brillo -->
-        <path d="M38 81 C 34 86, 28 88, 26 93" stroke="#050811" stroke-width="3.4" fill="none" stroke-linecap="round"/>
-        <path d="M38 81 C 34 86, 28 88, 26 93" stroke="#94a3b8" stroke-width="2.2" fill="none" stroke-linecap="round"/>
-        <path d="M37.3 80.6 C 33.6 85.5, 28 87.4, 25.5 92.3" stroke="#f1f5f9" stroke-width="0.7" fill="none" stroke-linecap="round" opacity="0.7"/>
-        <path d="M62 81 C 66 86, 72 88, 74 93" stroke="#050811" stroke-width="3.4" fill="none" stroke-linecap="round"/>
-        <path d="M62 81 C 66 86, 72 88, 74 93" stroke="#FF1744" stroke-width="2.2" fill="none" stroke-linecap="round"/>
-        <path d="M62.7 80.6 C 66.4 85.5, 72 87.4, 74.5 92.3" stroke="#ff9caa" stroke-width="0.7" fill="none" stroke-linecap="round" opacity="0.8"/>
-        <!-- Puntas de Sonda: mango aislante con brillo + punta metálica -->
-        <rect x="21.3" y="91.5" width="5.4" height="7.2" rx="2.2" fill="#050811"/>
-        <rect x="21.8" y="92" width="4.4" height="6.3" rx="1.8" fill="#cbd5e1"/>
-        <rect x="23.1" y="92.6" width="1.5" height="5.2" rx="0.6" fill="#f8fafc" opacity="0.65"/>
-        <line x1="24" y1="98.7" x2="24" y2="102.6" stroke="#e2e8f0" stroke-width="1.1" stroke-linecap="round"/>
-        <rect x="72.3" y="91.5" width="5.4" height="7.2" rx="2.2" fill="#050811"/>
-        <rect x="72.8" y="92" width="4.4" height="6.3" rx="1.8" fill="#FF1744"/>
-        <rect x="74.1" y="92.6" width="1.5" height="5.2" rx="0.6" fill="#ffc2cc" opacity="0.65"/>
-        <line x1="75" y1="98.7" x2="75" y2="102.6" stroke="#e2e8f0" stroke-width="1.1" stroke-linecap="round"/>
-      </svg>
+<div class="app-ui">
+  <div class="topbar">
+    <div>
+      <h1>⚡ Calculadora Eléctrica Profesional</h1>
+      <input type="text" id="proyectoNombre" class="proyecto-input" placeholder="Nombre del proyecto..." value="">
     </div>
-    
-    <div class="title-block">
-      <h1>Calculador de Cableado Residencial AEA</h1>
-      <!-- Subtítulo Escolar -->
-      <div class="subtitle">Esc. José Martí</div>
+    <button class="export-btn" id="exportPdf" style="display:none;">⬇ Exportar PDF del proyecto</button>
+  </div>
+  <div class="subtitle">Dimensionamiento de circuitos: corriente, breaker, diferencial, calibre de conductor, caída de tensión y diagrama unifilar.</div>
+
+  <div class="card" id="datosTrabajoCard">
+    <h2>Datos del trabajo (para el informe PDF)</h2>
+    <label style="margin-top:0;">Norma de referencia (sección de conductor y ampacidad)</label>
+    <select id="fNorma">
+      <option value="iec">IEC / AEA — sección en mm²</option>
+      <option value="nec">NEC — calibre en AWG</option>
+    </select>
+    <div class="hint" id="normaHint" style="margin-bottom:10px;"></div>
+    <div class="campos">
+      <div><label>Cliente</label><input type="text" id="infCliente" placeholder="Nombre del cliente"></div>
+      <div><label>Electricista / Empresa</label><input type="text" id="infElectricista" placeholder="Nombre o empresa"></div>
+      <div><label>N° de Obra / Informe</label><input type="text" id="infObra" placeholder="Ej: 001-06-26"></div>
+    </div>
+    <label>Observaciones técnicas</label>
+    <textarea id="infObservaciones" rows="2" placeholder="Notas adicionales para el informe (opcional)" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:8px;font-size:14px;font-family:inherit;resize:vertical;"></textarea>
+  </div>
+
+  <div class="tabs" id="tabsBar"></div>
+
+  <div class="grid">
+    <div class="card">
+      <h2>Parámetros del circuito</h2>
+      <div id="formCircuito"></div>
+    </div>
+    <div class="card">
+      <h2>Resultados del cálculo</h2>
+      <div id="resultados"></div>
+      <div id="diagramaContainer"></div>
+      <div class="note">
+        Cálculo de referencia orientativo (no reemplaza el cálculo de un electricista matriculado).
+        Sección de cable y caída de tensión estimadas para conductor de cobre según la norma elegida
+        arriba (IEC/AEA en mm² o NEC en AWG); no se mezclan ambas unidades bajo la misma tabla de
+        ampacidad. Verificá siempre contra la reglamentación vigente (AEA/IRAM/NEC según tu país) antes de instalar.
+      </div>
     </div>
   </div>
-</header>
 
-<main class="app">
-  <!-- Panel de Configuración -->
-  <section class="config-panel panel">
-    <h2>⚡ Configuración del Sistema</h2>
-    <div class="form-group">
-      <label for="tipoSistema">Tipo de Sistema Eléctrico</label>
-      <select id="tipoSistema">
-        <option value="">-- Seleccionar --</option>
-        <option value="monofasico">Monofásico (1φ - 220V)</option>
-        <option value="bifasico">Bifásico (2φ - 2x220V)</option>
-        <option value="trifasico">Trifásico (3φ - 3x380V)</option>
+  <div class="card" id="resumenCard">
+    <h2>Resumen del proyecto</h2>
+    <div id="resumenContenido"></div>
+  </div>
+
+  <div class="dev-footer">Desarrollador Web: <strong>Juan Pablo Rodríguez</strong><br>© <span id="footerYear"></span> Todos los derechos reservados.</div>
+</div>
+
+<a class="whatsapp-float" href="https://wa.me/5493813399196" target="_blank" rel="noopener" title="Contactar por WhatsApp" aria-label="Contactar por WhatsApp">
+  <svg viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg"><path d="M16.004 3C9.376 3 4 8.373 4 15c0 2.354.654 4.552 1.79 6.43L4 29l7.77-1.746A11.94 11.94 0 0 0 16.004 27C22.63 27 28 21.627 28 15S22.63 3 16.004 3Zm6.98 17.02c-.294.826-1.462 1.523-2.386 1.72-.634.135-1.462.24-4.244-.912-3.56-1.48-5.85-5.086-6.03-5.32-.176-.234-1.44-1.918-1.44-3.66 0-1.742.914-2.596 1.238-2.952.324-.356.706-.446.94-.446.234 0 .47.002.674.012.216.01.506-.082.792.604.294.706.998 2.448 1.086 2.626.088.178.146.386.03.62-.118.234-.176.386-.352.596-.176.21-.372.468-.53.628-.176.176-.36.368-.156.72.206.352.914 1.51 1.964 2.446 1.35 1.2 2.49 1.57 2.842 1.746.352.176.556.146.762-.088.206-.234.882-1.03 1.118-1.382.234-.352.47-.294.792-.176.324.118 2.06.972 2.414 1.148.352.176.588.264.674.412.088.148.088.856-.206 1.682Z"/></svg>
+</a>
+
+<div class="print-only print-report" id="printReport"></div>
+
+<script>
+  // ---------- Tablas de referencia ----------
+  // Tabla IEC: sección en mm², ampacidad para cobre (uso habitual instalación domiciliaria).
+  const BREAKERS_IEC = [6,10,16,20,25,32,40,50,63,80,100];
+  const CABLES_IEC = [[1.5,15],[2.5,21],[4,28],[6,36],[10,50],[16,68],[25,89],[35,111],[50,134]];
+  const AWG_MAP = {1.5:'16 AWG',2.5:'14 AWG',4:'12 AWG',6:'10 AWG',10:'8 AWG',16:'6 AWG',25:'4 AWG',35:'2 AWG',50:'1/0 AWG'};
+  // Tabla NEC: calibre en AWG/kcmil, ampacidad columna 60°C (Tabla 310.16, referencia conservadora
+  // para conductores de cobre en instalaciones residenciales). "mm2Ref" es el área real del AWG
+  // (no una equivalencia aproximada de ampacidad) y se usa solo para el cálculo de caída de tensión.
+  const BREAKERS_NEC = [15,20,25,30,40,50,60,70,80,90,100];
+  const CABLES_NEC = [
+    ['14 AWG',15,2.08], ['12 AWG',20,3.31], ['10 AWG',30,5.26], ['8 AWG',40,8.37],
+    ['6 AWG',55,13.3], ['4 AWG',70,21.2], ['3 AWG',85,26.7], ['2 AWG',95,33.6],
+    ['1 AWG',110,42.4], ['1/0 AWG',125,53.5], ['2/0 AWG',145,67.4], ['3/0 AWG',165,85.0], ['4/0 AWG',195,107.2]
+  ];
+  const RESISTIVIDAD_CU = 0.0175;
+  const MAX_CAIDA_PORC = 3;
+  const VOLTAJES = [120,127,208,220,240,277,380,400,415,480];
+  // Voltajes trifásicos/industriales que no son típicos para circuitos de uso general
+  // (tomacorrientes, iluminación, húmeda). Si aparecen combinados con esos tipos, se avisa.
+  const VOLTAJES_INDUSTRIALES = [380,400,415,480];
+  const TIPOS_USO_GENERAL = ['iluminacion','tomas','humeda'];
+  const TIPOS = {
+    iluminacion: {label:'Iluminación', curva:'B', gfci:false, maxBreaker:{iec:16, nec:15}},
+    tomas:       {label:'Tomacorrientes', curva:'C', gfci:false, maxBreaker:{iec:20, nec:20}},
+    humeda:      {label:'Húmeda (baño/cocina/exterior)', curva:'C', gfci:true, maxBreaker:{iec:20, nec:20}, minMm2:2.5},
+    uso_especial:{label:'Uso especial / Artefacto fijo (cocina, horno, termotanque grande)', curva:'C', gfci:false, maxBreaker:null},
+    motor:       {label:'Motor / Alto arranque', curva:'D', gfci:false, maxBreaker:null},
+  };
+  const LS_KEY = 'calc-electrica-residencial-v1';
+  let norma = 'iec'; // 'iec' (mm², IEC/AEA) o 'nec' (AWG, NEC). Se aplica a todos los circuitos del proyecto.
+
+  // Convierte un número tipeado en formato argentino (punto = separador de miles,
+  // coma = separador decimal) a un float de JS. Acepta también números "planos" sin
+  // separadores (ej: 15000). Esto evita que "15.000" (quince mil, como se escribe
+  // habitualmente en Argentina) se interprete por error como 15 al usar parseFloat
+  // directo, que trata el punto como separador decimal.
+  function parseNumeroAr(valor) {
+    if (valor === null || valor === undefined) return NaN;
+    let s = String(valor).trim();
+    if (s === '') return NaN;
+    s = s.replace(/[^0-9.,-]/g, ''); // descarta cualquier caracter que no sea dígito, separador o signo
+    const tieneComa = s.indexOf(',') !== -1;
+    const tienePunto = s.indexOf('.') !== -1;
+    if (tieneComa) {
+      // Con coma presente, el punto (si lo hay) es separador de miles: se descarta,
+      // y la coma pasa a ser el punto decimal.
+      s = s.replace(/\./g, '').replace(',', '.');
+    } else if (tienePunto) {
+      // Sin coma: si hay más de un punto, o el último grupo tiene exactamente 3 dígitos,
+      // se interpretan como separadores de miles (ej: "15.000" o "1.234.567").
+      // Si hay un solo punto y el grupo final tiene 1-2 dígitos, se respeta como decimal
+      // (ej: "15.5" o "15.25").
+      const partes = s.split('.');
+      const ultimo = partes[partes.length - 1];
+      if (partes.length > 2 || ultimo.length === 3) {
+        s = partes.join('');
+      }
+      // en cualquier otro caso se deja el único punto como decimal
+    }
+    const n = parseFloat(s);
+    return isNaN(n) ? NaN : n;
+  }
+
+  // Escapa texto libre del usuario antes de insertarlo en HTML (atributos o contenido de texto),
+  // para que comillas, < o > no corten el markup y rompan el formulario o el informe.
+  function escaparHtml(valor) {
+    return String(valor ?? '').replace(/[&<>"']/g, (ch) => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    }[ch]));
+  }
+
+  // Palabras clave de artefactos húmedos / de riesgo eléctrico directo. Si aparecen en el
+  // nombre de una carga, se exige diferencial GFCI/ID sin importar el tipo de circuito elegido
+  // (evita que, p. ej., una "ducha" cargada dentro de un circuito tipo "Iluminación" quede sin
+  // protección diferencial solo por un tipeo de categoría).
+  const PALABRAS_RIESGO_HUMEDO = [
+    'ducha', 'calefon', 'calefón', 'termotanque', 'termo tanque', 'calentador',
+    'lavarropas', 'lavavajillas', 'secarropas', 'bañera', 'banera', 'jacuzzi',
+    'hidromasaje', 'pileta', 'piscina', 'bomba de agua', 'exterior', 'jardin', 'jardín',
+    'cocina', 'horno'
+  ];
+  function detectarRiesgoHumedo(cargas) {
+    return (cargas || []).some(l => {
+      const n = (l.nombre || '').toLowerCase();
+      return PALABRAS_RIESGO_HUMEDO.some(p => n.includes(p));
+    });
+  }
+
+  // ---------- Estado ----------
+  let circuitos = [];
+  let activoIndex = 0;
+  const datosInforme = { cliente: '', electricista: '', obra: '', observaciones: '' };
+  document.getElementById('infCliente').addEventListener('input', (e) => { datosInforme.cliente = e.target.value; guardarEstado(); });
+  document.getElementById('infElectricista').addEventListener('input', (e) => { datosInforme.electricista = e.target.value; guardarEstado(); });
+  document.getElementById('infObra').addEventListener('input', (e) => { datosInforme.obra = e.target.value; guardarEstado(); });
+  document.getElementById('infObservaciones').addEventListener('input', (e) => { datosInforme.observaciones = e.target.value; guardarEstado(); });
+  document.getElementById('proyectoNombre').addEventListener('input', () => { guardarEstado(); });
+  document.getElementById('fNorma').addEventListener('input', (e) => {
+    norma = e.target.value;
+    actualizarHintNorma();
+    actualizarTodo();
+  });
+  function actualizarHintNorma() {
+    document.getElementById('fNorma').value = norma;
+    document.getElementById('normaHint').textContent = norma === 'nec'
+      ? 'Se muestra el calibre en AWG y se usa la ampacidad de la Tabla 310.16 (columna 60°C) del NEC para elegir cable y breaker.'
+      : 'Se muestra la sección en mm² y se usa la tabla de ampacidad IEC/AEA de uso habitual para elegir cable y breaker.';
+  }
+
+  function nuevoCircuito(nombre) {
+    return {
+      nombre: nombre || `Circuito ${circuitos.length + 1}`,
+      tipo: 'tomas',
+      voltaje: 220,
+      fase: 'mono',
+      demanda: 1,
+      seguridad: 1,
+      distancia: 0,
+      curvaManual: 'auto',
+      cosFi: 0.85, // solo se aplica en circuitos tipo "Motor"; el resto de los tipos usa cos φ = 1
+      cargas: [{ nombre: '', potencia: '', cantidad: 1 }]
+    };
+  }
+
+  // Cantidad de conductores necesarios para un circuito, según fase y tipo. Se usa para la
+  // lista de materiales del informe PDF (bug corregido: antes se asumían siempre 3 conductores
+  // -fase, neutro, tierra- incluso en circuitos trifásicos, que necesitan más).
+  //  - Monofásico: 3 (fase, neutro, tierra)
+  //  - Trifásico "Motor": 4 (3 fases + tierra; los motores trifásicos no suelen necesitar neutro)
+  //  - Trifásico (resto de tipos): 5 (3 fases + neutro + tierra)
+  function numConductores(c) {
+    if (c.fase === 'tri') return c.tipo === 'motor' ? 4 : 5;
+    return 3;
+  }
+
+  // Devuelve un aviso si el voltaje elegido es atípico para el tipo de circuito (p. ej. 480V
+  // trifásico en un circuito de "Tomacorrientes"), para evitar cargar mal un dato por error.
+  function avisoVoltaje(c) {
+    const esIndustrial = VOLTAJES_INDUSTRIALES.includes(Number(c.voltaje));
+    if (esIndustrial && TIPOS_USO_GENERAL.includes(c.tipo)) {
+      return `${c.voltaje} V es un voltaje típico de cargas industriales/motores, no de circuitos de "${TIPOS[c.tipo].label}". Verificá que el voltaje esté bien cargado.`;
+    }
+    if (c.fase !== 'tri' && Number(c.voltaje) >= 380) {
+      return `${c.voltaje} V monofásico es inusual; ese voltaje suele corresponder a sistemas trifásicos. Verificá el tipo de alimentación.`;
+    }
+    return null;
+  }
+
+  // ---------- Cálculo puro ----------
+  function calcularCircuito(c) {
+    const tipoInfo = TIPOS[c.tipo] || TIPOS.tomas;
+    const esTrifasico = c.fase === 'tri';
+    const esNec = norma === 'nec';
+    const BREAKERS = esNec ? BREAKERS_NEC : BREAKERS_IEC;
+    const totalPotencia = c.cargas.reduce((s, l) => {
+      const pot = Math.max(parseNumeroAr(l.potencia) || 0, 0);
+      const cant = Math.max(parseNumeroAr(l.cantidad) || 0, 0);
+      return s + pot * cant;
+    }, 0);
+    if (totalPotencia <= 0) return null;
+    const potenciaEfectiva = totalPotencia * c.demanda;
+    // Trifásico: I = P / (√3 · V · cosφ). Monofásico: I = P / (V · cosφ).
+    // cos φ solo se aplica a circuitos tipo "Motor" (motores de inducción típicamente cos φ 0.80-0.90
+    // a plena carga); el resto de los tipos se asume carga resistiva/cos φ = 1, como antes.
+    const factorCorriente = esTrifasico ? Math.sqrt(3) : 1;
+    const cosFi = c.tipo === 'motor' ? Math.min(Math.max(parseFloat(c.cosFi) || 0.85, 0.5), 1) : 1;
+    const corrienteDiseno = (potenciaEfectiva * c.seguridad) / (factorCorriente * c.voltaje * cosFi);
+    const maxBreakerTabla = BREAKERS[BREAKERS.length - 1];
+    if (corrienteDiseno > maxBreakerTabla) {
+      return { excede: true, corrienteDiseno, totalPotencia, potenciaEfectiva, avisoVoltaje: avisoVoltaje(c) };
+    }
+    const breaker = BREAKERS.find(b => b >= corrienteDiseno);
+    // Tope normativo de breaker según tipo de circuito (p. ej. iluminación no debería superar 16A,
+    // tomacorrientes de uso general no deberían superar 20A). Si se supera, el circuito debe dividirse.
+    const maxBreakerTipo = tipoInfo.maxBreaker ? tipoInfo.maxBreaker[esNec ? 'nec' : 'iec'] : null;
+    if (maxBreakerTipo && breaker > maxBreakerTipo) {
+      return { excede: true, excedeTipo: true, maxBreakerTipo, corrienteDiseno, totalPotencia, potenciaEfectiva, avisoVoltaje: avisoVoltaje(c) };
+    }
+
+    let cableMm2, cableLabel, cableAwg, idx;
+    if (esNec) {
+      idx = CABLES_NEC.findIndex(cb => cb[1] >= breaker);
+      if (idx === -1) idx = CABLES_NEC.length - 1;
+      // Mismo piso normativo que en la rama IEC, comparando por el área real (mm2Ref) del AWG.
+      if (tipoInfo.minMm2) {
+        const idxMin = CABLES_NEC.findIndex(cb => cb[2] >= tipoInfo.minMm2);
+        if (idxMin !== -1 && idxMin > idx) idx = idxMin;
+      }
+      let cable = CABLES_NEC[idx];
+      const factorCaida = esTrifasico ? Math.sqrt(3) : 2;
+      function caidaPorcNec(mm2) { return ((factorCaida * c.distancia * corrienteDiseno * RESISTIVIDAD_CU) / mm2) / c.voltaje * 100; }
+      let caida = caidaPorcNec(cable[2]);
+      while (caida > MAX_CAIDA_PORC && idx < CABLES_NEC.length - 1) { idx++; cable = CABLES_NEC[idx]; caida = caidaPorcNec(cable[2]); }
+      cableLabel = cable[0]; cableAwg = cable[0]; cableMm2 = Math.round(cable[2] * 100) / 100;
+      var caidaFinal = caida;
+    } else {
+      idx = CABLES_IEC.findIndex(cb => cb[1] >= breaker);
+      if (idx === -1) idx = CABLES_IEC.length - 1;
+      // Piso normativo de sección por tipo de circuito (ej. "Húmeda" no debe bajar de 2.5mm²
+      // aunque la corriente calculada sea baja y alcance con un calibre menor por ampacidad).
+      if (tipoInfo.minMm2) {
+        const idxMin = CABLES_IEC.findIndex(cb => cb[0] >= tipoInfo.minMm2);
+        if (idxMin !== -1 && idxMin > idx) idx = idxMin;
+      }
+      let cable = CABLES_IEC[idx];
+      const factorCaida = esTrifasico ? Math.sqrt(3) : 2;
+      function caidaPorcIec(mm2) { return ((factorCaida * c.distancia * corrienteDiseno * RESISTIVIDAD_CU) / mm2) / c.voltaje * 100; }
+      let caida = caidaPorcIec(cable[0]);
+      while (caida > MAX_CAIDA_PORC && idx < CABLES_IEC.length - 1) { idx++; cable = CABLES_IEC[idx]; caida = caidaPorcIec(cable[0]); }
+      cableMm2 = cable[0]; cableLabel = `${cable[0]} mm²`; cableAwg = AWG_MAP[cable[0]];
+      var caidaFinal = caida;
+    }
+
+    const curva = c.curvaManual === 'auto' ? tipoInfo.curva : c.curvaManual;
+    // El diferencial se exige si el tipo de circuito ya lo requiere (p. ej. "Húmeda"), o si se
+    // detectó un artefacto de riesgo húmedo cargado dentro de un circuito de otro tipo.
+    const gfciForzado = !tipoInfo.gfci && detectarRiesgoHumedo(c.cargas);
+    return {
+      totalPotencia, potenciaEfectiva, corrienteDiseno, breaker, curva,
+      cableMm2, cableAwg, cableLabel, caida: caidaFinal, norma, esNec,
+      gfci: tipoInfo.gfci || gfciForzado, gfciForzado, tipoLabel: tipoInfo.label, esTrifasico, cosFi,
+      avisoVoltaje: avisoVoltaje(c)
+    };
+  }
+
+  // Mensaje unificado para circuitos que exceden parámetros (tabla general o tope del tipo de circuito)
+  function mensajeExcede(r) {
+    if (r.excedeTipo) {
+      return `La corriente de diseño (${r.corrienteDiseno.toFixed(2)} A) requeriría un breaker por encima del máximo permitido para este tipo de circuito (${r.maxBreakerTipo} A). Dividí la carga en más circuitos de este tipo.`;
+    }
+    const tabla = norma === 'nec' ? BREAKERS_NEC : BREAKERS_IEC;
+    const maxBreaker = tabla[tabla.length - 1];
+    return `La corriente de diseño supera el breaker más grande de esta tabla (${maxBreaker} A). Este circuito necesita dividirse en varios circuitos, o requiere un breaker/conductor industrial fuera del alcance de esta calculadora.`;
+  }
+
+  // ---------- Diagrama unifilar (SVG) ----------
+  function diagramaSVG(r) {
+    const boxes = [
+      { title: 'TABLERO', sub: '' },
+      { title: 'BREAKER', sub: `${r.breaker} A · Curva ${r.curva}` },
+    ];
+    if (r.gfci) boxes.push({ title: 'DIFERENCIAL', sub: `GFCI/ID 30mA · ${r.esTrifasico ? '4P' : '2P'}` });
+    boxes.push({ title: 'CONDUCTOR', sub: r.cableLabel });
+    boxes.push({ title: 'CARGA', sub: `${r.totalPotencia.toLocaleString('es-AR')} W` });
+
+    const boxW = 128, boxH = 56, gap = 34, startX = 10, y = 18;
+    const totalW = boxes.length * boxW + (boxes.length - 1) * gap + startX * 2;
+    let svg = `<svg viewBox="0 0 ${totalW} 96" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto;">`;
+    boxes.forEach((b, i) => {
+      const x = startX + i * (boxW + gap);
+      svg += `<rect x="${x}" y="${y}" width="${boxW}" height="${boxH}" rx="8" fill="#ecfdf5" stroke="#059669" stroke-width="1.5"/>`;
+      svg += `<text x="${x + boxW / 2}" y="${y + 22}" text-anchor="middle" font-size="11" font-weight="700" fill="#1e293b">${b.title}</text>`;
+      svg += `<text x="${x + boxW / 2}" y="${y + 38}" text-anchor="middle" font-size="10" fill="#475569">${b.sub}</text>`;
+      if (i < boxes.length - 1) {
+        const lx1 = x + boxW, lx2 = x + boxW + gap, ly = y + boxH / 2;
+        svg += `<line x1="${lx1}" y1="${ly}" x2="${lx2 - 6}" y2="${ly}" stroke="#059669" stroke-width="2"/>`;
+        svg += `<polygon points="${lx2 - 6},${ly - 4} ${lx2},${ly} ${lx2 - 6},${ly + 4}" fill="#059669"/>`;
+      }
+    });
+    svg += `</svg>`;
+    return svg;
+  }
+
+  // ---------- Render: tabs ----------
+  const tabsBar = document.getElementById('tabsBar');
+  function renderTabs() {
+    tabsBar.innerHTML = '';
+    circuitos.forEach((c, i) => {
+      const btn = document.createElement('button');
+      btn.className = 'tab-btn' + (i === activoIndex ? ' active' : '');
+      btn.textContent = c.nombre || `Circuito ${i + 1} (sin nombre)`;
+      btn.addEventListener('click', () => { activoIndex = i; renderTabs(); renderFormulario(); });
+      if (circuitos.length > 1) {
+        const close = document.createElement('button');
+        close.className = 'tab-close';
+        close.textContent = '✕';
+        close.title = 'Eliminar circuito';
+        close.addEventListener('click', (e) => {
+          e.stopPropagation();
+          if (!confirm(`¿Eliminar "${c.nombre}"?`)) return;
+          circuitos.splice(i, 1);
+          // Si se borra una pestaña ANTERIOR a la activa, el índice de la activa debe
+          // correrse un lugar hacia atrás (el splice ya movió todo lo posterior a "i").
+          // Antes solo se recortaba cuando quedaba fuera de rango, lo que hacía que el
+          // circuito activo pasara a ser otro distinto sin aviso.
+          if (i < activoIndex) activoIndex--;
+          else if (activoIndex >= circuitos.length) activoIndex = circuitos.length - 1;
+          renderTabs();
+          renderFormulario();
+        });
+        btn.appendChild(close);
+      }
+      tabsBar.appendChild(btn);
+    });
+    const addBtn = document.createElement('button');
+    addBtn.className = 'add-tab-btn';
+    addBtn.textContent = '+ Nuevo circuito';
+    addBtn.addEventListener('click', () => {
+      circuitos.push(nuevoCircuito());
+      activoIndex = circuitos.length - 1;
+      renderTabs();
+      renderFormulario();
+    });
+    tabsBar.appendChild(addBtn);
+  }
+
+  // ---------- Render: formulario del circuito activo ----------
+  const formCircuito = document.getElementById('formCircuito');
+  function renderFormulario() {
+    const c = circuitos[activoIndex];
+    formCircuito.innerHTML = `
+      <label>Nombre del circuito</label>
+      <input type="text" id="fNombre" value="${escaparHtml(c.nombre)}">
+
+      <label>Tipo de circuito</label>
+      <select id="fTipo">
+        ${Object.entries(TIPOS).map(([k, v]) => `<option value="${k}" ${c.tipo === k ? 'selected' : ''}>${v.label}</option>`).join('')}
       </select>
-    </div>
-    <div class="form-group">
-      <label for="potenciaTotal">Potencia Total Contratada (kW)</label>
-      <input type="number" id="potenciaTotal" step="0.1" inputmode="decimal" placeholder="Ej: 5.5">
-    </div>
-    <div class="form-group">
-      <label for="factorPotencia">Factor de Potencia (cos φ)</label>
-      <input type="number" id="factorPotencia" step="0.01" inputmode="decimal" value="0.95">
-    </div>
-    <div class="form-group">
-      <label for="longitudPrincipal">Longitud de acometida principal (m)</label>
-      <input type="number" id="longitudPrincipal" inputmode="numeric" value="20">
-    </div>
-    <div class="form-group">
-      <label for="iccOrigen">Corriente de cortocircuito presunta en el origen (kA)</label>
-      <input type="number" id="iccOrigen" step="0.1" inputmode="decimal" placeholder="Ej: 6 (dato que debe informar la distribuidora)">
-      <small style="opacity:0.7">AEA 770, pág. 45 (770.15): la empresa distribuidora debe brindar este valor en los bornes del medidor. Sin este dato no se puede verificar que las térmicas soporten el cortocircuito.</small>
-    </div>
-    <div class="form-group">
-      <label for="poderCorteTermicas">Poder de corte de las térmicas a instalar (kA)</label>
-      <select id="poderCorteTermicas">
-        <option value="3">3 kA</option>
-        <option value="4.5">4,5 kA</option>
-        <option value="6" selected>6 kA</option>
-        <option value="10">10 kA</option>
-        <option value="15">15 kA</option>
-        <option value="25">25 kA</option>
+      <div class="hint" id="tipoHint"></div>
+
+      <label>Voltaje (V)</label>
+      <select id="fVoltaje">
+        ${VOLTAJES.map(v => `<option value="${v}" ${c.voltaje == v ? 'selected' : ''}>${v} V</option>`).join('')}
       </select>
-      <small style="opacity:0.7">Dato de placa del interruptor (PdCcc), marcado en un rectángulo en el propio dispositivo.</small>
-    </div>
-    <div class="form-group">
-      <label for="tipoAislacion">Tipo de aislación de los conductores</label>
-      <select id="tipoAislacion">
-        <option value="PVC" selected>PVC (hasta 70°C) — k = 115</option>
-        <option value="XLPE">XLPE / EPR (hasta 90°C) — k = 143</option>
+      <div class="hint">Voltajes LATAM: 120/127/220/240V monofásico habitual · 208/277/380/400/415/480V sistemas trifásicos (380V trifásico es el estándar habitual en Argentina y buena parte de LATAM)</div>
+
+      <label>Tipo de alimentación</label>
+      <select id="fFase">
+        <option value="mono" ${c.fase !== 'tri' ? 'selected' : ''}>Monofásico</option>
+        <option value="tri" ${c.fase === 'tri' ? 'selected' : ''}>Trifásico</option>
       </select>
-      <small style="opacity:0.7">Define la constante "k" de la verificación térmica k²S² ≥ I²t (AEA 770, pág. 45). El cable domiciliario habitual (IRAM NM 247-3) es PVC.</small>
-    </div>
-    <div class="form-group">
-      <label for="i2tTermicas">Energía específica pasante I²t de la térmica (A²·s)</label>
-      <input type="number" id="i2tTermicas" step="1" inputmode="decimal" placeholder="Ej: 300000 (dato de la curva del fabricante)">
-      <small style="opacity:0.7">Tomar este dato de la curva "I²t" del fabricante de la térmica, evaluada A LA MISMA Icc informada arriba (no al poder de corte nominal). Sin este dato no se puede verificar k²S² ≥ I²t (AEA 770, pág. 45).</small>
-    </div>
-    <div class="form-actions">
-      <button id="btnConfigurar" class="btn btn-primary btn-large">✓ Configurar Sistema</button>
-      <button type="button" id="btnLimpiarConfig" class="btn btn-secondary btn-large">🗑 Limpiar Configuración</button>
-    </div>
-    
-    <!-- Tablero Principal Resumen -->
-    <div id="panelTablero" class="summary-box" style="display: none; margin-top: 15px;">
-      <h3>📊 Tablero Principal</h3>
-      <div id="resumenTablero"></div>
-      <div id="resultadoPoderCorte" class="checklist-result" style="margin-top:10px;"></div>
-    </div>
-  </section>
+      <div class="hint">Elegí Trifásico si el circuito se alimenta con 3 fases (típico en 208/380/400/480V). Cambia cómo se calcula la corriente y la caída de tensión.</div>
 
-  <!-- Panel de Circuitos -->
-  <section class="circuits-panel panel">
-    <h2>⚙ Agregar Circuitos</h2>
-    <form id="circuitForm">
-      <div class="form-group">
-        <label for="tipoCircuito">Tipo de Circuito</label>
-        <select id="tipoCircuito">
-          <option value="">-- Seleccionar --</option>
-          <option value="Iluminación">Iluminación (IUG)</option>
-          <option value="Tomacorriente">Tomacorriente de Uso General — TUG (fichas 2P+T 10A, techo 20A)</option>
-          <option value="Tomacorriente Especial (TUE)">Tomacorriente de Uso Especial — TUE (consumo unitario 10 a 20A por boca, techo 32A)</option>
-          <option value="Cocina/Comedor">Cocina/Comedor</option>
-          <option value="Lavarropas">Lavarropas</option>
-          <option value="Aire Acondicionado">Aire Acondicionado</option>
-          <option value="Calefactor">Calefactor</option>
-          <option value="Calentador de agua">Calentador de agua</option>
-          <option value="Otro">Otro</option>
-        </select>
-      </div>
-      <div class="form-group">
-        <label for="ambiente">Ambiente/Descripción</label>
-        <input type="text" id="ambiente" placeholder="Ej: Cocina, Dormitorio">
-      </div>
-      <div class="form-group">
-        <label for="potenciaCircuito">Potencia instalada (kW)</label>
-        <input type="number" id="potenciaCircuito" step="0.01" inputmode="decimal" placeholder="Ej: 1.5">
-        <small style="opacity:0.7">Para circuitos de <strong>Iluminación (IUG)</strong> se aplica automáticamente el Factor de Simultaneidad 2/3 sobre este valor para calcular cable y térmica (AEA 770, Tabla 770.8.I nota 2).</small>
-      </div>
-      <div class="form-group">
-        <label for="longitud">Longitud del circuito (m)</label>
-        <input type="number" id="longitud" inputmode="numeric" placeholder="Ej: 15">
-      </div>
-      <div class="form-group">
-        <label for="caida">Caída de tensión máxima permitida (%)</label>
-        <select id="caida">
-          <option value="3">3% (Iluminación / Tomacorrientes - uso general)</option>
-          <option value="5">5% (circuitos que alimentan solo motores)</option>
-        </select>
-        <small style="opacity:0.7">Se autoselecciona según el tipo de circuito (AEA 90364-7-771, cláus. 771.13.b); podés cambiarlo si tenés un criterio justificado.</small>
-      </div>
-      <div class="form-group">
-        <label for="circuitosPorCano">Circuitos que comparten este caño</label>
-        <select id="circuitosPorCano">
-          <option value="1">1 (canalización individual)</option>
-          <option value="2">2 circuitos agrupados</option>
-          <option value="3">3 circuitos agrupados</option>
-        </select>
-        <small style="opacity:0.7">Si dos o más circuitos van por la misma cañería, el calibre máximo admitido baja (AEA 770, Tabla 770.12, pág. 40). Para más de 3 circuitos agrupados, consultar la tabla completa con un profesional.</small>
-      </div>
-      <div class="form-actions">
-        <button type="submit" class="btn btn-primary">+ Agregar</button>
-        <button type="button" id="btnLimpiarForm" class="btn btn-secondary">Limpiar</button>
-      </div>
-    </form>
-  </section>
+      ${c.tipo === 'motor' ? `
+      <label>Factor de potencia (cos φ)</label>
+      <input type="number" id="fCosFi" value="${c.cosFi ?? 0.85}" min="0.5" max="1" step="0.01">
+      <div class="hint">Cos φ típico de un motor de inducción a plena carga: 0.80–0.90. Afecta la corriente real de diseño (I = P / (√3·V·cosφ) en trifásico). Un cos φ menor implica más corriente, breaker y cable más grandes.</div>
+      ` : ''}
 
-  <!-- Panel de Resultados -->
-  <section class="results-panel panel">
-    <h2>📊 Resumen de Circuitos</h2>
+      <div class="factor-row" style="margin-top:16px;">
+        <span>Factor de Demanda</span>
+        <span class="factor-value" id="demandaValue">${parseFloat(c.demanda).toFixed(2)}</span>
+      </div>
+      <input type="range" id="fDemanda" min="0.3" max="1" step="0.05" value="${c.demanda}">
 
-    <!-- Encabezado de informe: oculto en pantalla, visible solo al exportar/imprimir -->
-    <div id="printMeta" class="print-only"></div>
+      <label>Factor de Seguridad</label>
+      <div class="btn-group" id="seguridadGroup">
+        <div class="factor-btn ${c.seguridad == 1.00 ? 'active' : ''}" data-value="1.00"><strong>1.00</strong>Estándar</div>
+        <div class="factor-btn ${c.seguridad == 1.25 ? 'active' : ''}" data-value="1.25"><strong>1.25</strong>Continua</div>
+        <div class="factor-btn ${c.seguridad == 1.60 ? 'active' : ''}" data-value="1.60"><strong>1.60</strong>Alto pico</div>
+      </div>
 
-    <div id="tableWrap">
-      <table id="circuitsTable">
-        <thead>
-          <tr>
-            <th>Tipo</th>
-            <th>Ambiente</th>
-            <th>Potencia</th>
-            <th>I (A)</th>
-            <th>Cable</th>
-            <th>Térmica</th>
-            <th>Agrup.</th>
-            <th>PE (tierra)</th>
-            <th>Caída (V)</th>
-            <th>Acción</th>
-          </tr>
-        </thead>
+      <label>Distancia (m)</label>
+      <input type="number" id="fDistancia" value="${c.distancia}" min="0" step="0.5">
+
+      <label>Curva del breaker</label>
+      <select id="fCurva">
+        <option value="auto" ${c.curvaManual === 'auto' ? 'selected' : ''}>Automática (según tipo de circuito)</option>
+        <option value="B" ${c.curvaManual === 'B' ? 'selected' : ''}>Curva B (iluminación)</option>
+        <option value="C" ${c.curvaManual === 'C' ? 'selected' : ''}>Curva C (tomacorrientes / uso general)</option>
+        <option value="D" ${c.curvaManual === 'D' ? 'selected' : ''}>Curva D (motores / alto arranque)</option>
+      </select>
+
+      <label>Carga del circuito</label>
+      <div class="hint" style="margin-top:-10px;margin-bottom:8px;">Potencia: escribí el número con o sin puntos de miles (15000 o 15.000), usando coma para decimales si hace falta (1500,5).</div>
+      <div class="table-scroll">
+        <table>
+          <thead><tr><th>Artefacto</th><th>Potencia (W)</th><th>Cant.</th><th>Total (W)</th><th></th></tr></thead>
+          <tbody id="cargaBody"></tbody>
+        </table>
+      </div>
+      <button class="add-row-btn" id="addRow">+ Agregar artefacto</button>
+    `;
+
+    document.getElementById('fNombre').addEventListener('input', (e) => { c.nombre = e.target.value; renderTabs(); actualizarTodo(); });
+    document.getElementById('fTipo').addEventListener('input', (e) => { c.tipo = e.target.value; renderFormulario(); });
+    document.getElementById('fVoltaje').addEventListener('input', (e) => { c.voltaje = parseFloat(e.target.value); actualizarTodo(); });
+    document.getElementById('fFase').addEventListener('input', (e) => { c.fase = e.target.value; actualizarTodo(); });
+    const fCosFiEl = document.getElementById('fCosFi');
+    if (fCosFiEl) fCosFiEl.addEventListener('input', (e) => { c.cosFi = parseFloat(e.target.value) || 0.85; actualizarTodo(); });
+    document.getElementById('fDemanda').addEventListener('input', (e) => {
+      c.demanda = parseFloat(e.target.value);
+      document.getElementById('demandaValue').textContent = c.demanda.toFixed(2);
+      actualizarTodo();
+    });
+    document.getElementById('fDistancia').addEventListener('input', (e) => { c.distancia = parseFloat(e.target.value) || 0; actualizarTodo(); });
+    document.getElementById('fCurva').addEventListener('input', (e) => { c.curvaManual = e.target.value; actualizarTodo(); });
+
+    document.querySelectorAll('#seguridadGroup .factor-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('#seguridadGroup .factor-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        c.seguridad = parseFloat(btn.dataset.value);
+        actualizarTodo();
+      });
+    });
+
+    const cargaBody = document.getElementById('cargaBody');
+    c.cargas.forEach(carga => cargaBody.appendChild(crearFilaCarga(c, carga)));
+    document.getElementById('addRow').addEventListener('click', () => {
+      const nueva = { nombre: '', potencia: '', cantidad: 1 };
+      c.cargas.push(nueva);
+      cargaBody.appendChild(crearFilaCarga(c, nueva));
+    });
+
+    actualizarHintTipo();
+    actualizarTodo();
+  }
+
+  function actualizarHintTipo() {
+    const c = circuitos[activoIndex];
+    const info = TIPOS[c.tipo];
+    document.getElementById('tipoHint').textContent =
+      `Curva sugerida: ${info.curva}` + (info.gfci ? ' · Requiere diferencial GFCI/ID' : '');
+  }
+
+  function crearFilaCarga(circuito, carga) {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td><input type="text" class="nombre" placeholder="Ej: ducha" value="${escaparHtml(carga.nombre)}"></td>
+      <td><input type="text" inputmode="decimal" class="potencia" placeholder="Ej: 15000" value="${escaparHtml(carga.potencia)}"></td>
+      <td><input type="number" class="cantidad" min="1" value="${escaparHtml(carga.cantidad)}" style="width:60px"></td>
+      <td class="total-cell">0 W</td>
+      <td><button class="del-btn" title="Eliminar">✕</button></td>
+    `;
+    const nombreInp = tr.querySelector('.nombre');
+    const potInp = tr.querySelector('.potencia');
+    const cantInp = tr.querySelector('.cantidad');
+    function actualizarTotalFila() {
+      const total = Math.max(parseNumeroAr(carga.potencia) || 0, 0) * Math.max(parseNumeroAr(carga.cantidad) || 0, 0);
+      tr.querySelector('.total-cell').textContent = total.toLocaleString('es-AR') + ' W';
+    }
+    nombreInp.addEventListener('input', () => { carga.nombre = nombreInp.value; actualizarTotalFila(); actualizarTodo(); });
+    potInp.addEventListener('input', () => {
+      carga.potencia = potInp.value; actualizarTotalFila(); actualizarTodo();
+    });
+    cantInp.addEventListener('input', () => {
+      if (cantInp.value !== '' && parseFloat(cantInp.value) < 1) cantInp.value = 1;
+      carga.cantidad = cantInp.value; actualizarTotalFila(); actualizarTodo();
+    });
+    tr.querySelector('.del-btn').addEventListener('click', () => {
+      const i = circuito.cargas.indexOf(carga);
+      if (i > -1) circuito.cargas.splice(i, 1);
+      tr.remove();
+      actualizarTodo();
+    });
+    actualizarTotalFila();
+    return tr;
+  }
+
+  // ---------- Resultados + diagrama del circuito activo, resumen y export ----------
+  const resultadosEl = document.getElementById('resultados');
+  const diagramaEl = document.getElementById('diagramaContainer');
+  const resumenEl = document.getElementById('resumenContenido');
+  const exportBtn = document.getElementById('exportPdf');
+
+  function guardarEstado() {
+    try {
+      localStorage.setItem(LS_KEY, JSON.stringify({
+        proyectoNombre: document.getElementById('proyectoNombre').value,
+        datosInforme, circuitos, activoIndex, norma
+      }));
+    } catch (e) { /* almacenamiento no disponible (modo privado, cuota, etc.): se sigue sin persistir */ }
+  }
+
+  function cargarEstado() {
+    try {
+      const raw = localStorage.getItem(LS_KEY);
+      if (!raw) return false;
+      const data = JSON.parse(raw);
+      if (!data || !Array.isArray(data.circuitos) || data.circuitos.length === 0) return false;
+      circuitos = data.circuitos;
+      circuitos.forEach(c => {
+        if (!c.fase) c.fase = 'mono'; // compatibilidad con proyectos guardados antes de este campo
+        if (!c.cosFi) c.cosFi = 0.85; // compatibilidad con proyectos guardados antes de este campo
+        if (!c.curvaManual) c.curvaManual = 'auto'; // compatibilidad con proyectos guardados antes de este campo
+      });
+      norma = (data.norma === 'nec') ? 'nec' : 'iec'; // compatibilidad con proyectos guardados antes de este campo (default IEC, que era el comportamiento previo)
+      activoIndex = Math.min(Math.max(data.activoIndex || 0, 0), circuitos.length - 1);
+      Object.assign(datosInforme, data.datosInforme || {});
+      document.getElementById('proyectoNombre').value = data.proyectoNombre || '';
+      document.getElementById('infCliente').value = datosInforme.cliente || '';
+      document.getElementById('infElectricista').value = datosInforme.electricista || '';
+      document.getElementById('infObra').value = datosInforme.obra || '';
+      document.getElementById('infObservaciones').value = datosInforme.observaciones || '';
+      return true;
+    } catch (e) { return false; }
+  }
+
+  function actualizarTodo() {
+    const c = circuitos[activoIndex];
+    const r = calcularCircuito(c);
+    diagramaEl.innerHTML = '';
+    guardarEstado();
+
+    const avisoVoltajeHtml = (r && r.avisoVoltaje)
+      ? `<div class="note" style="margin-top:4px;padding-top:0;border-top:none;color:var(--warn);">⚠️ ${r.avisoVoltaje}</div>`
+      : '';
+
+    if (!r) {
+      resultadosEl.innerHTML = '<p class="result-empty">Ingresá al menos una carga para ver los resultados.</p>';
+    } else if (r.excede) {
+      const tablaLimite = norma === 'nec' ? BREAKERS_NEC : BREAKERS_IEC;
+      const limiteBadge = r.excedeTipo ? r.maxBreakerTipo : tablaLimite[tablaLimite.length - 1];
+      resultadosEl.innerHTML = `
+        <div class="result-row"><span>Potencia total instalada</span><span class="val">${r.totalPotencia.toLocaleString('es-AR')} W</span></div>
+        <div class="result-row"><span>Potencia efectiva (con demanda)</span><span class="val">${r.potenciaEfectiva.toLocaleString('es-AR', { maximumFractionDigits: 0 })} W</span></div>
+        <div class="result-row"><span>Corriente de diseño</span><span class="val">${r.corrienteDiseno.toFixed(2)} A <span class="badge warn">Excede ${limiteBadge} A</span></span></div>
+        <div class="note" style="margin-top:4px;padding-top:0;border-top:none;color:var(--danger);">
+          ${mensajeExcede(r)}
+        </div>
+        ${avisoVoltajeHtml}`;
+    } else {
+      const gfciBadge = r.gfci ? '<span class="badge info">GFCI/ID recomendado</span>' : '';
+      const gfciAviso = r.gfciForzado
+        ? `<div class="note" style="margin-top:4px;padding-top:0;border-top:none;color:var(--danger);">
+             Se detectó un artefacto de riesgo húmedo (ducha, calefón, termotanque, etc.) en este circuito.
+             Se exige diferencial GFCI/ID de 30 mA aunque el tipo de circuito seleccionado ("${r.tipoLabel}")
+             no lo requiera por defecto. Considerá cambiar el tipo de circuito a "Húmeda (baño/cocina/exterior)".
+           </div>`
+        : '';
+      const continuaAviso = c.seguridad > 1
+        ? `<div class="hint" style="margin-top:-4px;">Breaker incluye factor de seguridad ×${parseFloat(c.seguridad).toFixed(2)} (${c.seguridad >= 1.25 && c.seguridad < 1.6 ? 'carga continua, +25% recomendado para cargas >3h' : 'pico de arranque'}) sobre la corriente de diseño.</div>`
+        : '';
+      const cosFiAviso = (c.tipo === 'motor')
+        ? `<div class="hint" style="margin-top:-4px;">Corriente de diseño incluye cos φ = ${r.cosFi.toFixed(2)} (factor de potencia del motor).</div>`
+        : '';
+      const normaAviso = `<div class="hint">Norma: <strong>${norma === 'nec' ? 'NEC (AWG)' : 'IEC/AEA (mm²)'}</strong> · ampacidad de cobre, 30°C ambiente, ${norma === 'nec' ? 'Tabla 310.16 col. 60°C' : 'tabla habitual de instalación domiciliaria'}.</div>`;
+      resultadosEl.innerHTML = `
+        <div class="result-row"><span>Potencia total instalada</span><span class="val">${r.totalPotencia.toLocaleString('es-AR')} W</span></div>
+        <div class="result-row"><span>Potencia efectiva (con demanda)</span><span class="val">${r.potenciaEfectiva.toLocaleString('es-AR', { maximumFractionDigits: 0 })} W</span></div>
+        <div class="result-row"><span>Corriente de diseño</span><span class="val">${r.corrienteDiseno.toFixed(2)} A</span></div>
+        <div class="result-row"><span>Breaker recomendado</span><span class="val">${r.breaker} A · Curva ${r.curva}${gfciBadge}</span></div>
+        ${continuaAviso}
+        ${cosFiAviso}
+        <div class="result-row"><span>Conductor (cobre)</span><span class="val">${r.cableLabel}</span></div>
+        <div class="result-row"><span>Caída de tensión estimada</span><span class="val">${r.caida.toFixed(2)} % (límite ${MAX_CAIDA_PORC}%) ${r.caida <= MAX_CAIDA_PORC ? '<span class="badge ok">OK</span>' : '<span class="badge warn">Alta</span>'}</span></div>
+        ${normaAviso}
+        ${gfciAviso}
+        ${avisoVoltajeHtml}
+      `;
+      diagramaEl.innerHTML = `<div class="diagrama-box"><h3>Diagrama unifilar</h3>${diagramaSVG(r)}</div>`;
+    }
+
+    renderResumen();
+  }
+
+  function renderResumen() {
+    let filas = '';
+    let hayValidos = false;
+    circuitos.forEach(c => {
+      const r = calcularCircuito(c);
+      if (!r) {
+        filas += `<tr><td>${escaparHtml(c.nombre) || 'Sin nombre'}</td><td>${TIPOS[c.tipo].label}</td><td>${c.voltaje} V</td><td colspan="4" class="result-empty">Sin cargas cargadas</td></tr>`;
+      } else if (r.excede) {
+        const motivoBadge = r.excedeTipo ? `Excede máx. de tipo (${r.maxBreakerTipo} A)` : `Excede tabla (${r.corrienteDiseno.toFixed(1)} A)`;
+        const voltajeCellExcede = r.avisoVoltaje ? `${c.voltaje} V ⚠️` : `${c.voltaje} V`;
+        filas += `<tr><td>${escaparHtml(c.nombre) || 'Sin nombre'}</td><td>${TIPOS[c.tipo].label}</td><td>${voltajeCellExcede}</td><td colspan="4"><span class="badge warn">${motivoBadge}</span></td></tr>`;
+      } else {
+        hayValidos = true;
+        const voltajeCell = r.avisoVoltaje ? `${c.voltaje} V ⚠️` : `${c.voltaje} V`;
+        filas += `<tr>
+          <td>${escaparHtml(c.nombre) || 'Sin nombre'}</td><td>${r.tipoLabel}</td><td>${voltajeCell}</td>
+          <td>${r.breaker} A / Curva ${r.curva}${r.gfci ? ' + GFCI' : ''}</td>
+          <td>${r.cableLabel}</td>
+          <td>${r.caida.toFixed(2)} %</td>
+        </tr>`;
+      }
+    });
+    resumenEl.innerHTML = `
+      <div class="table-scroll">
+        <table id="resumenTabla">
+          <thead><tr><th>Circuito</th><th>Tipo</th><th>Voltaje</th><th>Breaker</th><th>Conductor</th><th>Caída</th></tr></thead>
+          <tbody>${filas}</tbody>
+        </table>
+      </div>`;
+    exportBtn.style.display = hayValidos ? 'inline-flex' : 'none';
+  }
+
+  // ---------- Exportar PDF ----------
+  function diagramaSVGInforme(c, r) {
+    const w = 560, h = 150;
+    const navy = '#065f46', magenta = '#db2777', gray = '#64748b';
+    // Cuando el circuito requiere diferencial, se agrega una etapa intermedia entre el breaker y
+    // la carga; el resto del layout (tablero y breaker) no cambia para no alterar el diagrama de
+    // los circuitos que no lo requieren (mismo resultado visual que antes en ese caso).
+    const xTab = 55, xBrk = 200, yLine = 68;
+    const xDiff = r.gfci ? 335 : null;
+    const xCarga = r.gfci ? 490 : 470;
+    let svg = `<svg viewBox="0 0 ${w} ${h}" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto;">`;
+
+    // Línea tablero -> breaker
+    svg += `<line x1="${xTab}" y1="${yLine}" x2="${xBrk - 14}" y2="${yLine}" stroke="${navy}" stroke-width="2"/>`;
+    // Tablero (punto)
+    svg += `<circle cx="${xTab}" cy="${yLine}" r="6" fill="${navy}"/>`;
+    svg += `<text x="${xTab}" y="${yLine + 30}" text-anchor="middle" font-size="11" font-weight="800" fill="#0f172a">TABLERO</text>`;
+    svg += `<text x="${xTab}" y="${yLine + 44}" text-anchor="middle" font-size="10" fill="${gray}">${c.voltaje} V</text>`;
+
+    // Breaker (símbolo de llave)
+    svg += `<circle cx="${xBrk - 14}" cy="${yLine}" r="3" fill="${navy}"/>`;
+    svg += `<line x1="${xBrk - 14}" y1="${yLine}" x2="${xBrk + 12}" y2="${yLine - 20}" stroke="#0f172a" stroke-width="2.5"/>`;
+    svg += `<circle cx="${xBrk + 14}" cy="${yLine}" r="3" fill="${navy}"/>`;
+    svg += `<text x="${xBrk}" y="${yLine + 30}" text-anchor="middle" font-size="11" font-weight="800" fill="#0f172a">${r.breaker} A</text>`;
+    svg += `<text x="${xBrk}" y="${yLine + 44}" text-anchor="middle" font-size="10" fill="${gray}">Curva ${r.curva}</text>`;
+
+    if (r.gfci) {
+      // Línea breaker -> diferencial
+      svg += `<line x1="${xBrk + 20}" y1="${yLine}" x2="${xDiff - 26}" y2="${yLine}" stroke="${navy}" stroke-width="2"/>`;
+      // Diferencial (rectángulo con "ID")
+      const drx = xDiff - 26, dry = yLine - 15, drw = 52, drh = 30;
+      svg += `<rect x="${drx}" y="${dry}" width="${drw}" height="${drh}" rx="4" fill="#fff" stroke="${navy}" stroke-width="2"/>`;
+      svg += `<text x="${xDiff}" y="${yLine + 5}" text-anchor="middle" font-size="11" font-weight="800" fill="${navy}">ID</text>`;
+      svg += `<text x="${xDiff}" y="${yLine + 30}" text-anchor="middle" font-size="11" font-weight="800" fill="#0f172a">DIFERENCIAL</text>`;
+      svg += `<text x="${xDiff}" y="${yLine + 44}" text-anchor="middle" font-size="10" fill="${gray}">GFCI/ID 30mA · ${c.fase === 'tri' ? 'Tetrapolar' : 'Bipolar'}</text>`;
+      // Línea diferencial -> carga, con etiqueta de cable arriba
+      svg += `<line x1="${xDiff + 26}" y1="${yLine}" x2="${xCarga - 34}" y2="${yLine}" stroke="${navy}" stroke-width="2"/>`;
+      svg += `<text x="${(xDiff + xCarga) / 2}" y="${yLine - 12}" text-anchor="middle" font-size="10" fill="${gray}">L=${c.distancia}m · ${r.cableLabel}</text>`;
+    } else {
+      // Línea breaker -> carga, con etiqueta de cable arriba
+      svg += `<line x1="${xBrk + 20}" y1="${yLine}" x2="${xCarga - 34}" y2="${yLine}" stroke="${navy}" stroke-width="2"/>`;
+      svg += `<text x="${(xBrk + xCarga) / 2}" y="${yLine - 12}" text-anchor="middle" font-size="10" fill="${gray}">L=${c.distancia}m · ${r.cableLabel}</text>`;
+    }
+
+    // Carga: motor (círculo con M) o carga genérica (rectángulo con resistencia en zigzag)
+    if (c.tipo === 'motor') {
+      svg += `<circle cx="${xCarga}" cy="${yLine}" r="18" fill="#fff" stroke="${magenta}" stroke-width="2.5"/>`;
+      svg += `<text x="${xCarga}" y="${yLine + 5}" text-anchor="middle" font-size="14" font-weight="800" fill="${magenta}">M</text>`;
+    } else {
+      const rx = xCarga - 30, ry = yLine - 15, rw = 60, rh = 30;
+      svg += `<rect x="${rx}" y="${ry}" width="${rw}" height="${rh}" rx="4" fill="#fff" stroke="${magenta}" stroke-width="2"/>`;
+      svg += `<polyline points="${rx + 6},${yLine} ${rx + 14},${yLine - 7} ${rx + 22},${yLine + 7} ${rx + 30},${yLine - 7} ${rx + 38},${yLine + 7} ${rx + 46},${yLine - 7} ${rx + 54},${yLine}" fill="none" stroke="${magenta}" stroke-width="1.5"/>`;
+    }
+    svg += `<text x="${xCarga}" y="${yLine + 30}" text-anchor="middle" font-size="11" font-weight="800" fill="#0f172a">CARGA</text>`;
+    svg += `<text x="${xCarga}" y="${yLine + 44}" text-anchor="middle" font-size="10" fill="${gray}">${r.totalPotencia.toLocaleString('es-AR')} W</text>`;
+    svg += `<text x="${xCarga}" y="${yLine + 57}" text-anchor="middle" font-size="10" fill="${gray}">${r.corrienteDiseno.toFixed(1)} A</text>`;
+
+    svg += `</svg>`;
+    return svg;
+  }
+
+  function paginaCircuito(c, r, numero) {
+    const info = `<div class="circuito-bar"><span>CIRCUITO ${numero}: ${escaparHtml(c.nombre) || 'Sin nombre'}</span><span>${new Date().toLocaleDateString('es-AR')}</span></div>`;
+    const filas = c.cargas.map((carga, i) => {
+      const potParseada = Math.max(parseNumeroAr(carga.potencia) || 0, 0);
+      const cantParseada = Math.max(parseNumeroAr(carga.cantidad) || 0, 0);
+      const total = potParseada * cantParseada;
+      return `<tr><td>${i + 1}</td><td>${escaparHtml(carga.nombre) || '—'}</td><td>${potParseada.toLocaleString('es-AR')} W</td><td>${cantParseada}</td><td>${total.toLocaleString('es-AR')} W</td></tr>`;
+    }).join('');
+    const tabla = `<table class="artefactos-table"><thead><tr><th>#</th><th>Artefacto</th><th>Potencia</th><th>Cant.</th><th>Total</th></tr></thead><tbody>${filas}</tbody></table>`;
+    const avisoVolt = avisoVoltaje(c);
+    const infoRow = `<div class="info-row">
+      <span><span class="lbl">Voltaje:</span> <b>${c.voltaje} V (${c.fase === 'tri' ? 'Trifásico' : 'Monofásico'})</b></span>
+      <span><span class="lbl">Distancia:</span> <b>${c.distancia} m</b></span>
+      <span><span class="lbl">FD:</span> <b>${parseFloat(c.demanda).toFixed(2)}</b></span>
+      <span><span class="lbl">FS:</span> <b>${parseFloat(c.seguridad).toFixed(2)} ${c.seguridad > 1 ? '(Carga continua)' : ''}</b></span>
+      <span><span class="lbl">Norma:</span> <b>${norma === 'nec' ? 'NEC (AWG)' : 'IEC/AEA (mm²)'}</b></span>
+    </div>` + (avisoVolt ? `<div class="ed-row warn-txt" style="margin-bottom:10px;">⚠️ ${avisoVolt}</div>` : '');
+
+    if (!r) {
+      return `<div class="circuito-page">${info}<div class="circuito-body">${infoRow}<p style="font-size:12px;color:#64748b;">Sin cargas cargadas en este circuito.</p></div></div>`;
+    }
+
+    const potenciaLine = `<div class="potencia-line">
+      <span>Potencia: <b>${r.totalPotencia.toLocaleString('es-AR')} W</b></span>
+      <span>Corregida: <b>${r.potenciaEfectiva.toLocaleString('es-AR', { maximumFractionDigits: 0 })} W</b></span>
+      <span>Con FS: <b>${r.corrienteDiseno.toFixed(2)} A</b> (×${parseFloat(c.seguridad).toFixed(2)})</span>
+      ${c.tipo === 'motor' ? `<span>Cos φ: <b>${r.cosFi.toFixed(2)}</b></span>` : ''}
+    </div>`;
+
+    if (r.excede) {
+      const tablaBreakersLimite = norma === 'nec' ? BREAKERS_NEC : BREAKERS_IEC;
+      const limite = r.excedeTipo ? r.maxBreakerTipo : tablaBreakersLimite[tablaBreakersLimite.length - 1];
+      const detalleExcede = r.excedeTipo
+        ? `Corriente de diseño ${r.corrienteDiseno.toFixed(2)} A implicaría un breaker por encima del máximo permitido para circuitos de tipo "${TIPOS[c.tipo].label}" (${limite} A)`
+        : `Corriente de diseño ${r.corrienteDiseno.toFixed(2)} A supera el breaker máximo de tabla (${limite} A)`;
+      const estado = `<div class="estado-box fuera">
+        <div class="eb-linea1">CIRCUITO FUERA DE PARÁMETROS</div>
+        <div class="eb-linea2">${detalleExcede}</div>
+      </div>
+      <div class="estado-detalle"><div class="ed-row"><span class="warn-txt">Este circuito debe dividirse en varios circuitos o requiere componentes industriales fuera del alcance de esta calculadora.</span></div></div>`;
+      return `<div class="circuito-page">${info}<div class="circuito-body">${infoRow}${tabla}${potenciaLine}${estado}</div></div>`;
+    }
+
+    const estado = `<div class="estado-box">
+      <div class="eb-linea1">CIRCUITO DENTRO DE PARÁMETROS</div>
+      <div class="eb-linea2">BREAKER: ${r.breaker} A — Curva ${r.curva} (recomendada) | CABLE: ${r.cableLabel}</div>
+      <div class="eb-linea2">Corriente: ${r.corrienteDiseno.toFixed(2)} A | Breaker: ${r.breaker} A</div>
+    </div>`;
+    const caidaOk = r.caida <= MAX_CAIDA_PORC;
+    const detalle = `<div class="estado-detalle">
+      <div class="ed-row">Caída de tensión: <b>${r.caida.toFixed(2)}%</b> — <span class="${caidaOk ? 'ok-txt' : 'warn-txt'}">${caidaOk ? 'OK' : 'ALTA'}</span></div>
+      <div class="ed-row">Interruptor diferencial sugerido: <b>${r.gfci ? `30 mA / Clase A / ${c.fase === 'tri' ? 'Tetrapolar (4P)' : 'Bipolar (2P)'} (GFCI/ID)` : 'No requerido para este tipo de circuito'}</b>${r.gfciForzado ? ' <span class="warn-txt">(exigido por artefacto de riesgo húmedo detectado en la carga, no por el tipo de circuito)</span>' : ''}</div>
+    </div>`;
+    const diagrama = `<div class="diagrama-titulo">DIAGRAMA UNIFILAR</div>${diagramaSVGInforme(c, r)}`;
+
+    return `<div class="circuito-page">${info}<div class="circuito-body">${infoRow}${tabla}${potenciaLine}${estado}${detalle}${diagrama}</div></div>`;
+  }
+
+  exportBtn.addEventListener('click', () => {
+    const printReport = document.getElementById('printReport');
+    const proyectoNombre = document.getElementById('proyectoNombre').value || 'Proyecto Eléctrico';
+    const ahora = new Date().toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+
+    const dtFilas = [
+      ['Cliente', datosInforme.cliente || '—'],
+      ['Electricista / Empresa', datosInforme.electricista || '—'],
+      ['N° de Obra / Informe', datosInforme.obra || '—'],
+      ['Fecha', ahora],
+    ].map(([lbl, val]) => `<span class="lbl">${lbl}:</span> <span>${escaparHtml(val)}</span>`).join('');
+
+    let html = `
+      <div class="informe-header">
+        <div class="ih-title">INFORME TÉCNICO DE CÁLCULO DE CIRCUITOS</div>
+        <div class="ih-sub">${escaparHtml(proyectoNombre)} · Calculadora Eléctrica Profesional · ${circuitos.length} circuito${circuitos.length === 1 ? '' : 's'}</div>
+        <div class="ih-fecha">Fecha: ${ahora}</div>
+      </div>
+      <div class="datos-trabajo">
+        <div class="dt-title">DATOS DEL TRABAJO</div>
+        <div class="dt-grid">${dtFilas}</div>
+      </div>`;
+
+    circuitos.forEach((c, i) => { html += paginaCircuito(c, calcularCircuito(c), i + 1); });
+
+    // ---- Agregaciones para RESUMEN GENERAL y LISTA DE MATERIALES ----
+    const DIFERENCIALES = [25, 40, 63, 80, 100];
+    let potenciaTotal = 0, corrienteTotal = 0;
+    const cableAgg = {};   // etiqueta de cable (mm² o AWG, según norma) -> metros de conductor acumulados
+    const breakerAgg = {}; // "amp|curva" -> cantidad
+    const diffAgg = {};    // "amp|sensibilidad" -> cantidad
+
+    let hayCircuitosSinResolver = false;
+    const filasResumen = circuitos.map((c, i) => {
+      const r = calcularCircuito(c);
+      if (!r) return `<tr><td>${i + 1}. ${c.nombre}</td><td colspan="3">Sin cargas</td><td>—</td><td class="estado-warn">—</td></tr>`;
+      if (r.excede) {
+        // La potencia y corriente de este circuito son reales y existen igual, aunque el
+        // circuito no tenga breaker/cable asignado todavía: se suman al total general para
+        // que el interruptor principal del tablero se dimensione contra la carga real de la
+        // vivienda, no solo contra los circuitos que ya quedaron resueltos.
+        potenciaTotal += r.totalPotencia;
+        corrienteTotal += r.corrienteDiseno;
+        hayCircuitosSinResolver = true;
+        const motivo = r.excedeTipo ? `Excede máx. de tipo (${r.maxBreakerTipo} A)` : `Excede tabla (${r.corrienteDiseno.toFixed(1)} A)`;
+        return `<tr><td>${i + 1}. ${c.nombre || 'Sin nombre'}</td><td colspan="3">${motivo}</td><td>—</td><td class="estado-warn">REVISAR</td></tr>`;
+      }
+
+      potenciaTotal += r.totalPotencia;
+      corrienteTotal += r.corrienteDiseno;
+      // Metros TOTALES de conductor para este circuito: la longitud declarada (+15% de margen)
+      // multiplicada por la cantidad de conductores que realmente necesita según fase y tipo
+      // (3 en monofásico; 4 o 5 en trifásico). Antes se sumaba solo "c.distancia*1.15" sin
+      // importar la fase, lo que subestimaba el material en cualquier circuito trifásico.
+      cableAgg[r.cableLabel] = (cableAgg[r.cableLabel] || 0) + c.distancia * 1.15 * numConductores(c);
+      const bKey = `${r.breaker}|${r.curva}`;
+      breakerAgg[bKey] = (breakerAgg[bKey] || { breaker: r.breaker, curva: r.curva, cant: 0 });
+      breakerAgg[bKey].cant++;
+      // Solo se suma un diferencial a la lista de materiales si el circuito realmente lo requiere
+      // (r.gfci), para que el informe coincida con lo que muestra la pantalla y el diagrama unifilar.
+      if (r.gfci) {
+        const diffRating = DIFERENCIALES.find(d => d >= r.breaker) || DIFERENCIALES[DIFERENCIALES.length - 1];
+        const sens = 30;
+        const polos = c.fase === 'tri' ? '4P' : '2P'; // trifásico exige diferencial tetrapolar, no bipolar
+        const dKey = `${diffRating}|${sens}|${polos}`;
+        diffAgg[dKey] = (diffAgg[dKey] || { diffRating, sens, polos, cant: 0 });
+        diffAgg[dKey].cant++;
+      }
+
+      return `<tr><td>${i + 1}. ${c.nombre || 'Sin nombre'}</td><td>${r.totalPotencia.toLocaleString('es-AR')} W</td><td>${r.corrienteDiseno.toFixed(1)} A</td><td>${r.breaker} A</td><td>${r.cableLabel}</td><td class="estado-ok">OK</td></tr>`;
+    }).join('');
+
+    html += `<div class="resumen-general">
+      <div class="rg-titulo">RESUMEN GENERAL</div>
+      <table>
+        <thead><tr><th>Circuito</th><th>Potencia</th><th>Corriente</th><th>Breaker</th><th>Cable</th><th>Estado</th></tr></thead>
         <tbody>
-          <!-- Dinámico -->
+          ${filasResumen}
+          <tr class="total-row"><td>TOTAL</td><td>${potenciaTotal.toLocaleString('es-AR')} W</td><td>${corrienteTotal.toFixed(1)} A</td><td>—</td><td>—</td><td>—</td></tr>
         </tbody>
       </table>
-      <div id="emptyState" class="empty-state" style="display: block;">
-        No hay circuitos agregados
+      ${hayCircuitosSinResolver ? '<div class="mp-nota" style="margin-top:8px;">El TOTAL incluye la potencia de circuitos marcados "REVISAR" (carga real de la instalación), pero esos circuitos no tienen breaker/cable asignado y por lo tanto no están incluidos en la lista de materiales. Resolvé esos circuitos (dividiendo la carga) antes de dimensionar el interruptor principal del tablero.</div>' : ''}
+    </div>`;
+
+    // ---- Página: Lista de materiales ----
+    // Orden por calibre real (de más fino a más grueso) en vez de alfabético o de parseFloat
+    // directo sobre la etiqueta. parseFloat("1/0 AWG") y parseFloat("1 AWG") dan el mismo
+    // valor (1), igual que "2 AWG"/"2/0 AWG", "3 AWG"/"3/0 AWG" y "4 AWG"/"4/0 AWG" (parseFloat
+    // corta en el primer caracter no numérico), lo que desordenaba la lista de materiales en
+    // proyectos NEC con calibres grandes. En NEC se usa la posición real en CABLES_NEC (que ya
+    // está ordenada de más fino a más grueso); en IEC/AEA alcanza con el valor numérico en mm².
+    function indiceCalibre(etiqueta) {
+      if (norma === 'nec') {
+        const idx = CABLES_NEC.findIndex(cb => cb[0] === etiqueta);
+        return idx === -1 ? Infinity : idx;
+      }
+      return parseFloat(etiqueta);
+    }
+    const filasCable = Object.keys(cableAgg).sort((a, b) => indiceCalibre(a) - indiceCalibre(b)).map(etiqueta => {
+      const metros = cableAgg[etiqueta];
+      return `<tr><td>${etiqueta}</td><td>${metros.toFixed(1)} m</td></tr>`;
+    }).join('') || '<tr><td colspan="2">Sin datos suficientes</td></tr>';
+
+    const filasBreakers = Object.values(breakerAgg).sort((a, b) => a.breaker - b.breaker).map(b =>
+      `<tr><td>${b.cant}</td><td>Breaker ${b.breaker}A - Curva ${b.curva}</td></tr>`
+    ).join('') || '<tr><td colspan="2">Sin datos suficientes</td></tr>';
+
+    const filasDiff = Object.values(diffAgg).sort((a, b) => a.diffRating - b.diffRating || a.polos.localeCompare(b.polos)).map(d =>
+      `<tr><td>${d.cant}</td><td>In ${d.diffRating} A / ${d.sens} mA / Clase A / ${d.polos === '4P' ? 'Tetrapolar (4P)' : 'Bipolar (2P)'}</td></tr>`
+    ).join('') || '<tr><td colspan="2">Sin datos suficientes</td></tr>';
+
+    html += `<div class="materiales-page">
+      <div class="mp-titulo" style="margin-top:0;">LISTA DE CABLE POR CALIBRE</div>
+      <table><thead><tr><th>Calibre</th><th>Metros totales de conductor</th></tr></thead><tbody>${filasCable}</tbody></table>
+      <div class="mp-nota">Los metros indicados son el total de conductor a comprar por calibre, sumando todos los conductores necesarios de cada circuito (con un margen del 15% sobre la distancia declarada). Se asumen 3 conductores por circuito monofásico (fase, neutro, tierra); 5 en trifásico con neutro (3 fases + neutro + tierra); y 4 en trifásico tipo "Motor" sin neutro (3 fases + tierra).</div>
+
+      <div class="mp-titulo">LISTA DE BREAKERS</div>
+      <table><thead><tr><th>Cantidad</th><th>Especificación</th></tr></thead><tbody>${filasBreakers}</tbody></table>
+
+      <div class="mp-titulo">LISTA DE INTERRUPTORES DIFERENCIALES (GFCI/ID)</div>
+      <table><thead><tr><th>Cantidad</th><th>Especificación</th></tr></thead><tbody>${filasDiff}</tbody></table>
+      <div class="mp-nota">Diferencial de 30 mA Clase A recomendado para circuitos húmedos (baño/cocina/exterior) por protección personal directa. Los demás tipos de circuito no se incluyen automáticamente en esta lista; evaluar caso por caso según la reglamentación vigente (en muchas normativas, todo circuito de tomacorrientes también debería llevar protección diferencial).</div>
+
+      <div class="mp-titulo">OBSERVACIONES TÉCNICAS</div>
+      <div class="mp-obs">${datosInforme.observaciones ? escaparHtml(datosInforme.observaciones) : '—'}</div>
+
+      <div class="mp-firmas">
+        <div class="mp-firma">Firma del Cliente</div>
+        <div class="mp-firma">Firma del Electricista</div>
       </div>
-    </div>
-    
-    <!-- NUEVO: semáforo consolidado del proyecto. Se llena desde script.js
-         (calcularSemaforoGeneral), leyendo resultados ya calculados por las
-         funciones de verificación existentes. -->
-    <div id="semaforoGeneral" class="semaforo-box"></div>
+    </div>`;
 
-    <div id="resumenCircuitos" class="resumen-box">
-      <p style="text-align:center;opacity:0.7">Agrega circuitos para ver el resumen</p>
-    </div>
+    html += `<div class="print-footnote">Cálculo de referencia orientativo. No reemplaza el cálculo de un electricista matriculado.<br>Verificar siempre contra la reglamentación vigente (AEA/IRAM/NEC según el país) antes de instalar.</div>`;
 
-    <div class="actions-export">
-      <button id="btnExport" class="btn btn-primary btn-large">📄 Exportar Proyecto PDF</button>
-      <button id="btnLimpiarTodo" class="btn btn-secondary btn-large">🗑 Limpiar Todo</button>
-    </div>
+    printReport.innerHTML = html;
+    window.print();
+  });
 
-    <!-- Pie de informe: oculto en pantalla, visible solo al exportar/imprimir -->
-    <div id="printFooter" class="print-only">
-      Informe generado automáticamente por el Calculador de Cableado Residencial AEA — Esc. José Martí.
-      Los valores mostrados son orientativos y deben ser verificados por un instalador electricista matriculado
-      antes de su ejecución, conforme a la reglamentación AEA 90364 vigente.
-      <div id="printFooterCredito">© 2026 R-TECH | Calculador AEA | Desarrollador Web: Juan Pablo Rodríguez</div>
-    </div>
-  </section>
-
-  <!-- ============================================
-       NUEVO PANEL — agregado de forma aditiva, no
-       reemplaza ni modifica ninguno de los paneles
-       anteriores (config-panel, circuits-panel,
-       results-panel). Guarda sus datos en su propia
-       clave de localStorage, separada del proyecto.
-       ============================================ -->
-  <section class="checklist-panel panel" id="checklist770Panel">
-    <h2>✅ Checklist AEA 90364-7-770 — Sección 770 (Viviendas)</h2>
-    <p class="checklist-intro">
-      Cumplimiento de la Sección 770. Los puntos 770.15.1 a 770.15.3 se evalúan
-      automáticamente a partir de los circuitos ya cargados arriba. El resto requiere
-      que confirmes la condición real de la instalación en obra.
-    </p>
-
-    <div class="checklist-group">
-      <h3>770.7 — Grado de electrificación (según superficie)</h3>
-      <div class="form-group">
-        <label for="inputSupCubierta">Superficie cubierta (m²)</label>
-        <input type="number" id="inputSupCubierta" step="0.1" inputmode="decimal" placeholder="Ej: 85">
-      </div>
-      <div class="form-group">
-        <label for="inputSupSemicubierta">Superficie semicubierta (m²)</label>
-        <input type="number" id="inputSupSemicubierta" step="0.1" inputmode="decimal" placeholder="Ej: 12">
-        <small style="opacity:0.7">Superficie límite de aplicación = cubierta + 50% de la semicubierta (770.7.1.1).</small>
-      </div>
-      <div id="resultadoGradoElectrificacion" class="checklist-result"></div>
-      <small style="opacity:0.65; display:block; margin-top:6px;">
-        ⚠️ La cantidad mínima de circuitos por grado y el "coeficiente de simultaneidad" que se muestran abajo
-        son valores de referencia que no pudimos verificar palabra por palabra contra las tablas 770.7.II/770.8.II
-        vigentes (no están disponibles como texto en esta guía). No se usan para calcular ningún circuito cargado
-        en la app — el cálculo real de cada circuito sigue el método de la Tabla 770.8.I (potencia por boca o
-        potencia real, con el factor de simultaneidad 2/3 solo para IUG). Verificar estos dos valores contra la
-        edición vigente de AEA 90364-7-770 antes de usarlos como definitivos.
-      </small>
-    </div>
-
-    <div class="checklist-group">
-      <h3>770.7 — Puntos mínimos de utilización por ambiente (Tabla 770.7.III)</h3>
-      <p class="checklist-intro">
-        Cargá cada ambiente de la vivienda para verificar la cantidad mínima de bocas de
-        Iluminación (IUG) y Tomacorrientes (TUG) exigida. Para <strong>Dormitorio</strong>,
-        <strong>Kitchinette</strong> y <strong>Estar/Comedor</strong> el mínimo se calcula
-        automáticamente según la Tabla 770.7.III (770.7.1). Para el resto de los ambientes
-        (Cocina, Baño, Lavadero, Pasillo, Garage, Otro) ingresá vos mismo el mínimo que
-        corresponda según la edición vigente de la AEA 90364-7-770 — la app no lo calcula
-        automáticamente para no arriesgar un valor incorrecto.
-      </p>
-
-      <form id="formAmbiente770" class="form-group">
-        <label for="tipoAmbiente770">Tipo de ambiente</label>
-        <select id="tipoAmbiente770">
-          <option value="Dormitorio">Dormitorio</option>
-          <option value="Kitchinette">Kitchinette</option>
-          <option value="Estar/Comedor">Estar / Comedor / Escritorio / Estudio / Biblioteca</option>
-          <option value="Cocina">Cocina</option>
-          <option value="Baño">Baño / Toilette</option>
-          <option value="Lavadero">Lavadero</option>
-          <option value="Pasillo">Pasillo cubierto</option>
-          <option value="Garage">Garage</option>
-          <option value="Otro">Otro</option>
-        </select>
-
-        <label for="nombreAmbiente770">Nombre / identificación (ej: "Dormitorio 2")</label>
-        <input type="text" id="nombreAmbiente770" placeholder="Ej: Dormitorio principal">
-
-        <div id="campoSuperficieAmbiente770">
-          <label for="superficieAmbiente770">Superficie del ambiente (m²)</label>
-          <input type="number" id="superficieAmbiente770" step="0.1" inputmode="decimal" placeholder="Ej: 12">
-        </div>
-
-        <div id="camposManualesAmbiente770" style="display:none;">
-          <label for="iugManualAmbiente770">Bocas IUG mínimas (según tabla 770.7.III)</label>
-          <input type="number" id="iugManualAmbiente770" min="0" step="1" placeholder="Ej: 1">
-          <label for="tugManualAmbiente770">Bocas TUG mínimas (según tabla 770.7.III)</label>
-          <input type="number" id="tugManualAmbiente770" min="0" step="1" placeholder="Ej: 3">
-        </div>
-
-        <button type="submit" class="btn btn-primary">➕ Agregar ambiente</button>
-      </form>
-
-      <div id="tableWrapAmbientes770">
-        <table id="ambientesTable770">
-          <thead>
-            <tr>
-              <th>Ambiente</th>
-              <th>Tipo</th>
-              <th>Superficie</th>
-              <th>IUG mín.</th>
-              <th>TUG mín.</th>
-              <th>Nota</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody></tbody>
-        </table>
-        <p id="emptyStateAmbientes770" style="text-align:center;opacity:0.7;">Todavía no agregaste ambientes.</p>
-      </div>
-
-      <div id="resultadoPuntosUtilizacion770" class="checklist-result"></div>
-    </div>
-
-    <div class="checklist-group">
-      <h3>770.14.1 — Protección simultánea contra contactos directos e indirectos</h3>
-      <label class="checklist-item">
-        <input type="checkbox" id="chk770_14_1_diferencial">
-        Interruptor diferencial (ID) de 30 mA instalado en el tablero principal, aguas arriba de las térmicas
-      </label>
-    </div>
-
-    <div class="checklist-group">
-      <h3>770.14.2 — Protección contra contactos directos</h3>
-      <label class="checklist-item">
-        <input type="checkbox" id="chk770_14_2_aislacion">
-        Partes activas cubiertas por aislación o envolventes (grado de protección IP2X mínimo)
-      </label>
-      <label class="checklist-item">
-        <input type="checkbox" id="chk770_14_2_tomas">
-        Tomacorrientes con obturadores / partes activas no accesibles al tacto directo
-      </label>
-    </div>
-
-    <div class="checklist-group">
-      <h3>770.14.3 — Protección contra contactos indirectos</h3>
-      <label class="checklist-item">
-        <input type="checkbox" id="chk770_14_3_corte">
-        Corte automático de la alimentación coordinado con el esquema de puesta a tierra (TT + diferencial)
-      </label>
-      <label class="checklist-item">
-        <input type="checkbox" id="chk770_14_3_continuidad">
-        Continuidad eléctrica verificada del conductor de protección (PE) en todos los circuitos
-      </label>
-    </div>
-
-    <div class="checklist-group">
-      <h3>770.14.4 — Características del sistema de puesta a tierra</h3>
-      <div class="form-group">
-        <label for="selEsquemaTierra">Esquema de puesta a tierra</label>
-        <select id="selEsquemaTierra">
-          <option value="TT">TT (habitual en viviendas AR)</option>
-          <option value="TN-S">TN-S</option>
-          <option value="TN-C-S">TN-C-S</option>
-        </select>
-      </div>
-      <div class="form-group">
-        <label for="inputResistenciaTierra">Resistencia de la toma de tierra medida (Ω)</label>
-        <input type="number" id="inputResistenciaTierra" step="0.1" inputmode="decimal" placeholder="Ej: 15">
-        <small style="opacity:0.7">Referencia orientativa con ID de 30mA (Ra × IΔn ≤ 24V para locales húmedos/exteriores). No reemplaza el análisis normativo completo de tensión de contacto límite.</small>
-      </div>
-      <div id="resultadoResistenciaTierra" class="checklist-result"></div>
-    </div>
-
-    <div class="checklist-group">
-      <h3>770.15.1 a 770.15.3 — Elección y coordinación de conductores y protecciones</h3>
-      <div id="resultadoAuto77015" class="checklist-result">
-        Configurá el sistema y agregá circuitos para evaluar este punto automáticamente.
-      </div>
-    </div>
-
-    <div class="checklist-group">
-      <h3>770.15 — Verificación térmica de cortocircuito (k²S² ≥ I²t)</h3>
-      <p class="checklist-intro">
-        Compara la energía específica pasante que admite cada conductor (según su sección y
-        tipo de aislación, cargados arriba en "Configuración del Sistema") contra la energía
-        específica pasante (I²t) que deja pasar la térmica, dato de la curva del fabricante.
-      </p>
-      <div id="resultadoVerificacionTermica770" class="checklist-result">
-        Configurá el sistema y cargá el dato de I²t para evaluar este punto automáticamente.
-      </div>
-    </div>
-
-    <div class="checklist-group">
-      <h3>770.15.4 — Protección contra sobretensiones transitorias</h3>
-      <label class="checklist-item">
-        <input type="checkbox" id="chk770_15_4_dps">
-        Dispositivo de protección contra sobretensiones (DPS/SPD) instalado
-      </label>
-      <div class="form-group">
-        <label for="selTipoDPS">Tipo de DPS (si aplica)</label>
-        <select id="selTipoDPS">
-          <option value="">-- No instalado / no aplica --</option>
-          <option value="I">Tipo 1 (riesgo de descarga atmosférica directa)</option>
-          <option value="II">Tipo 2 (protección general del tablero — caso habitual en viviendas)</option>
-          <option value="III">Tipo 3 (protección fina cerca de equipos sensibles)</option>
-        </select>
-      </div>
-    </div>
-
-    <div class="checklist-group">
-      <h3>770.15.5 — Protección contra sobretensiones permanentes</h3>
-      <label class="checklist-item">
-        <input type="checkbox" id="chk770_15_5_relesobre">
-        Relé/protector de tensión (sobre y subtensión) instalado, o red verificada como estable
-      </label>
-    </div>
-
-    <div class="form-actions" style="margin-top: 8px;">
-      <button type="button" id="btnActualizarChecklist770" class="btn btn-primary">🔄 Actualizar checklist</button>
-      <button type="button" id="btnReiniciarChecklist770" class="btn btn-secondary">🗑 Reiniciar checklist</button>
-    </div>
-
-    <div id="estadoGeneralChecklist770" class="summary-box" style="margin-top:16px;"></div>
-  </section>
-</main>
-
-<footer class="footer">
-  <div class="footer-content">
-    <small>© 2026 R-TECH | Calculador AEA | Desarrollador Web: Juan Pablo Rodríguez</small>
-    <a href="https://wa.me/543813399196" class="whatsapp-btn" target="_blank">
-      <svg viewBox="0 0 24 24" fill="currentColor">
-        <path d="M12.012 2c-5.506 0-9.989 4.478-9.99 9.984a9.964 9.964 0 001.333 4.993L2 22l5.135-1.347a9.946 9.946 0 004.877 1.267c5.507 0 9.991-4.477 9.992-9.986 0-2.67-1.037-5.178-2.923-7.062A9.925 9.925 0 0012.012 2zm5.726 14.129c-.314.882-1.542 1.616-2.11 1.674-.528.055-1.21.085-1.936-.145a10.66 10.66 0 01-4.259-2.52 11.608 11.608 0 01-2.946-4.009c-.36-.615-.572-1.332-.232-1.921.168-.291.528-.616.791-.832.083-.068.163-.122.222-.162.213-.146.402-.191.554-.045.152.145.548 1.344.593 1.439.046.094.046.204-.015.326-.061.122-.122.193-.213.297-.091.102-.192.176-.08.371.391.683.87 1.25 1.474 1.776.776.678 1.54 1.11 2.22 1.385.193.078.366.046.488-.088.152-.166.578-.671.73-.901.122-.18.274-.147.456-.076.183.071 1.411.666 1.654.787.244.12.406.18.467.284.061.105.061.616-.253 1.498z"/>
-      </svg>
-      WhatsApp
-    </a>
-  </div>
-</footer>
-
-<script src="script.js"></script>
-
-<!--
-  CURSOR RAYO ELÉCTRICO — cursor amarillo con forma de rayo.
-  CORREGIDO: antes había DOS sistemas de chispas corriendo en paralelo
-  (la clase ElectricMouse de script.js + un segundo generador de rayitos
-  acá mismo). El segundo no respetaba "prefers-reduced-motion" (sus
-  elementos no tenían className, así que la regla CSS que apaga .spark
-  con esa preferencia no los alcanzaba), y además creaba un <div> nuevo
-  en cada touchmove del celular, lo que podía sentirse "trabado" justo
-  mientras alguien completa el formulario en un teléfono de gama baja.
-  Ahora solo queda el cursor con forma de rayo (decorativo, sin costo de
-  rendimiento) y todo el efecto de chispas lo maneja la única instancia
-  de ElectricMouse ya declarada en script.js, que sí respeta esa
-  preferencia de accesibilidad.
--->
-<style>
-  body {
-    cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><polygon points="18,1 6,18 15,18 12,31 27,12 17,12" fill="%23FFD700" stroke="%23231a00" stroke-width="1.5" stroke-linejoin="round"/></svg>') 4 2, auto;
+  // ---------- Init ----------
+  document.getElementById('footerYear').textContent = new Date().getFullYear();
+  if (!cargarEstado()) {
+    circuitos.push(nuevoCircuito('Circuito 1'));
   }
-</style>
+  actualizarHintNorma();
+  renderTabs();
+  renderFormulario();
+</script>
 
 </body>
 </html>
