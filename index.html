@@ -172,7 +172,12 @@
       <h1>⚡ Calculadora Eléctrica Profesional</h1>
       <input type="text" id="proyectoNombre" class="proyecto-input" placeholder="Nombre del proyecto..." value="">
     </div>
-    <button class="export-btn" id="exportPdf" style="display:none;">⬇ Exportar PDF del proyecto</button>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+      <button class="export-btn" id="exportJson" style="background:#fff;color:var(--blue);border:1px solid var(--blue);">💾 Guardar proyecto</button>
+      <button class="export-btn" id="importJsonBtn" style="background:#fff;color:var(--blue);border:1px solid var(--blue);">📂 Abrir proyecto</button>
+      <input type="file" id="importJsonInput" accept="application/json" style="display:none;">
+      <button class="export-btn" id="exportPdf" style="display:none;">⬇ Exportar PDF del proyecto</button>
+    </div>
   </div>
   <div class="subtitle">Dimensionamiento de circuitos: corriente, breaker, diferencial, calibre de conductor, caída de tensión y diagrama unifilar.</div>
 
@@ -242,6 +247,25 @@
     ['6 AWG',55,13.3], ['4 AWG',70,21.2], ['3 AWG',85,26.7], ['2 AWG',95,33.6],
     ['1 AWG',110,42.4], ['1/0 AWG',125,53.5], ['2/0 AWG',145,67.4], ['3/0 AWG',165,85.0], ['4/0 AWG',195,107.2]
   ];
+  // Sección del conductor de protección (tierra/PE) según IEC 60364-5-54: si la fase es ≤16mm²,
+  // el PE va del mismo calibre; entre 16 y 35mm² el PE queda fijo en 16mm²; por encima de 35mm²
+  // el PE es la mitad de la sección de fase. El resultado se redondea hacia arriba al calibre
+  // comercial más cercano de la tabla de cables (nunca se declara un PE de sección "no estándar").
+  function seccionPE_IEC(mm2Fase) {
+    let objetivo;
+    if (mm2Fase <= 16) objetivo = mm2Fase;
+    else if (mm2Fase <= 35) objetivo = 16;
+    else objetivo = mm2Fase / 2;
+    const cable = CABLES_IEC.find(cb => cb[0] >= objetivo);
+    return cable ? cable[0] : CABLES_IEC[CABLES_IEC.length - 1][0];
+  }
+  // Conductor de puesta a tierra de equipos según NEC Tabla 250.122, en función del breaker
+  // del circuito (no de la sección de fase). Se usa el breaker más cercano por arriba.
+  const TABLA_PE_NEC = [[15,'14 AWG'],[20,'12 AWG'],[30,'10 AWG'],[40,'10 AWG'],[60,'10 AWG'],[100,'8 AWG'],[200,'6 AWG']];
+  function seccionPE_NEC(breaker) {
+    const fila = TABLA_PE_NEC.find(f => breaker <= f[0]);
+    return fila ? fila[1] : TABLA_PE_NEC[TABLA_PE_NEC.length - 1][1];
+  }
   const RESISTIVIDAD_CU = 0.0175;
   const MAX_CAIDA_PORC = 3;
   const VOLTAJES = [120,127,208,220,240,277,380,400,415,480];
@@ -250,11 +274,22 @@
   const VOLTAJES_INDUSTRIALES = [380,400,415,480];
   const TIPOS_USO_GENERAL = ['iluminacion','tomas','humeda'];
   const TIPOS = {
-    iluminacion: {label:'Iluminación', curva:'B', gfci:false, maxBreaker:{iec:16, nec:15}},
-    tomas:       {label:'Tomacorrientes', curva:'C', gfci:false, maxBreaker:{iec:20, nec:20}},
+    // AEA 90364-4-41 / 771 exige diferencial de 30 mA en TODOS los circuitos terminales de una
+    // vivienda (iluminación, tomas, especiales), no solo en circuitos húmedos: por eso gfci:true
+    // por defecto en iluminación y tomas. AEA también exige 2.5mm² como piso para tomacorrientes
+    // de uso general (TUG), de ahí el minMm2 nuevo en "tomas" (mismo mecanismo que ya usa "humeda").
+    iluminacion: {label:'Iluminación', curva:'B', gfci:true, maxBreaker:{iec:16, nec:15}},
+    tomas:       {label:'Tomacorrientes', curva:'C', gfci:true, maxBreaker:{iec:20, nec:20}, minMm2:2.5},
     humeda:      {label:'Húmeda (baño/cocina/exterior)', curva:'C', gfci:true, maxBreaker:{iec:20, nec:20}, minMm2:2.5},
-    uso_especial:{label:'Uso especial / Artefacto fijo (cocina, horno, termotanque grande)', curva:'C', gfci:false, maxBreaker:null},
+    // AEA también exige diferencial de 30 mA en circuitos especiales y de conexión fija (no solo
+    // iluminación/tomas/húmeda).
+    uso_especial:{label:'Uso especial / Artefacto fijo (cocina, horno, termotanque grande)', curva:'C', gfci:true, maxBreaker:null},
     motor:       {label:'Motor / Alto arranque', curva:'D', gfci:false, maxBreaker:null},
+    // Línea de alimentación de un tablero secundario/subtablero. Se calcula igual que cualquier
+    // otro circuito (la "carga" que se declara acá es la suma de lo que va a alimentar ese
+    // subtablero), sin tope normativo propio: el breaker principal del subtablero se dimensiona
+    // según esa carga total, no según un máximo de tipo de uso general.
+    subtablero:  {label:'Línea a subtablero (alimentación)', curva:'C', gfci:false, maxBreaker:null},
   };
   const LS_KEY = 'calc-electrica-residencial-v1';
   let norma = 'iec'; // 'iec' (mm², IEC/AEA) o 'nec' (AWG, NEC). Se aplica a todos los circuitos del proyecto.
@@ -362,6 +397,14 @@
     if (c.fase === 'tri') return c.tipo === 'motor' ? 4 : 5;
     return 3;
   }
+  // Conductores "activos" (fase + neutro, sin contar tierra): numConductores(c) siempre incluye
+  // 1 conductor de tierra además de los activos, así que se resta 1. Se usa para no duplicar el
+  // metraje de tierra en la lista de materiales, ya que el PE ahora se agrega aparte con su
+  // propio calibre real (ver seccionPE_IEC / seccionPE_NEC), en vez de asumir el mismo calibre
+  // que la fase como se hacía antes.
+  function numConductoresActivos(c) {
+    return numConductores(c) - 1;
+  }
 
   // Devuelve un aviso si el voltaje elegido es atípico para el tipo de circuito (p. ej. 480V
   // trifásico en un circuito de "Tomacorrientes"), para evitar cargar mal un dato por error.
@@ -445,9 +488,13 @@
     // El diferencial se exige si el tipo de circuito ya lo requiere (p. ej. "Húmeda"), o si se
     // detectó un artefacto de riesgo húmedo cargado dentro de un circuito de otro tipo.
     const gfciForzado = !tipoInfo.gfci && detectarRiesgoHumedo(c.cargas);
+    // Conductor de protección (tierra/PE): se calcula aparte de fase/neutro, según la norma
+    // elegida. No reemplaza cableMm2/cableLabel (que siguen siendo el calibre de fase) — es un
+    // dato adicional para el informe y la lista de materiales.
+    const cablePELabel = esNec ? seccionPE_NEC(breaker) : `${seccionPE_IEC(cableMm2)} mm²`;
     return {
       totalPotencia, potenciaEfectiva, corrienteDiseno, breaker, curva,
-      cableMm2, cableAwg, cableLabel, caida: caidaFinal, norma, esNec,
+      cableMm2, cableAwg, cableLabel, cablePELabel, caida: caidaFinal, norma, esNec,
       gfci: tipoInfo.gfci || gfciForzado, gfciForzado, tipoLabel: tipoInfo.label, esTrifasico, cosFi,
       avisoVoltaje: avisoVoltaje(c)
     };
@@ -464,9 +511,9 @@
   }
 
   // ---------- Diagrama unifilar (SVG) ----------
-  function diagramaSVG(r) {
+  function diagramaSVG(r, c) {
     const boxes = [
-      { title: 'TABLERO', sub: '' },
+      { title: 'TABLERO', sub: c ? `${c.voltaje} V` : '' },
       { title: 'BREAKER', sub: `${r.breaker} A · Curva ${r.curva}` },
     ];
     if (r.gfci) boxes.push({ title: 'DIFERENCIAL', sub: `GFCI/ID 30mA · ${r.esTrifasico ? '4P' : '2P'}` });
@@ -717,6 +764,74 @@
     } catch (e) { return false; }
   }
 
+  // ---------- Exportar / Importar proyecto (.json) ----------
+  // Reutiliza exactamente la misma forma de datos que guardarEstado/cargarEstado (localStorage),
+  // así que un archivo exportado es 100% compatible con lo que ya sabe leer cargarEstado.
+  function datosProyectoActual() {
+    return {
+      proyectoNombre: document.getElementById('proyectoNombre').value,
+      datosInforme, circuitos, activoIndex, norma
+    };
+  }
+
+  document.getElementById('exportJson').addEventListener('click', () => {
+    const data = datosProyectoActual();
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const nombreArchivo = (data.proyectoNombre || 'proyecto-electrico').trim().replace(/[^a-z0-9-_]+/gi, '_');
+    a.href = url;
+    a.download = `${nombreArchivo || 'proyecto-electrico'}.json`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  });
+
+  const importJsonInput = document.getElementById('importJsonInput');
+  document.getElementById('importJsonBtn').addEventListener('click', () => importJsonInput.click());
+  importJsonInput.addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        const data = JSON.parse(ev.target.result);
+        if (!data || !Array.isArray(data.circuitos) || data.circuitos.length === 0) {
+          alert('El archivo no tiene un formato de proyecto válido.');
+          return;
+        }
+        if (!confirm('Importar este proyecto reemplaza el proyecto actual (no guardado se pierde). ¿Continuar?')) return;
+        // Se aplica la MISMA normalización de compatibilidad que ya usa cargarEstado, para que
+        // un archivo exportado por una versión anterior de la app (sin fase/cosFi/curvaManual)
+        // se siga pudiendo abrir sin romper el cálculo.
+        circuitos = data.circuitos;
+        circuitos.forEach(c => {
+          if (!c.fase) c.fase = 'mono';
+          if (!c.cosFi) c.cosFi = 0.85;
+          if (!c.curvaManual) c.curvaManual = 'auto';
+        });
+        norma = (data.norma === 'nec') ? 'nec' : 'iec';
+        activoIndex = Math.min(Math.max(data.activoIndex || 0, 0), circuitos.length - 1);
+        Object.assign(datosInforme, { cliente: '', electricista: '', obra: '', observaciones: '' }, data.datosInforme || {});
+        document.getElementById('proyectoNombre').value = data.proyectoNombre || '';
+        document.getElementById('infCliente').value = datosInforme.cliente || '';
+        document.getElementById('infElectricista').value = datosInforme.electricista || '';
+        document.getElementById('infObra').value = datosInforme.obra || '';
+        document.getElementById('infObservaciones').value = datosInforme.observaciones || '';
+        actualizarHintNorma();
+        renderTabs();
+        renderFormulario();
+        guardarEstado();
+      } catch (err) {
+        alert('No se pudo leer el archivo: asegurate de que sea un .json exportado por esta calculadora.');
+      } finally {
+        importJsonInput.value = ''; // permite volver a elegir el mismo archivo si hace falta
+      }
+    };
+    reader.readAsText(file);
+  });
+
   function actualizarTodo() {
     const c = circuitos[activoIndex];
     const r = calcularCircuito(c);
@@ -764,12 +879,13 @@
         ${continuaAviso}
         ${cosFiAviso}
         <div class="result-row"><span>Conductor (cobre)</span><span class="val">${r.cableLabel}</span></div>
+        <div class="result-row"><span>Conductor de tierra (PE)</span><span class="val">${r.cablePELabel}</span></div>
         <div class="result-row"><span>Caída de tensión estimada</span><span class="val">${r.caida.toFixed(2)} % (límite ${MAX_CAIDA_PORC}%) ${r.caida <= MAX_CAIDA_PORC ? '<span class="badge ok">OK</span>' : '<span class="badge warn">Alta</span>'}</span></div>
         ${normaAviso}
         ${gfciAviso}
         ${avisoVoltajeHtml}
       `;
-      diagramaEl.innerHTML = `<div class="diagrama-box"><h3>Diagrama unifilar</h3>${diagramaSVG(r)}</div>`;
+      diagramaEl.innerHTML = `<div class="diagrama-box"><h3>Diagrama unifilar</h3>${diagramaSVG(r, c)}</div>`;
     }
 
     renderResumen();
@@ -781,11 +897,11 @@
     circuitos.forEach(c => {
       const r = calcularCircuito(c);
       if (!r) {
-        filas += `<tr><td>${escaparHtml(c.nombre) || 'Sin nombre'}</td><td>${TIPOS[c.tipo].label}</td><td>${c.voltaje} V</td><td colspan="4" class="result-empty">Sin cargas cargadas</td></tr>`;
+        filas += `<tr><td>${escaparHtml(c.nombre) || 'Sin nombre'}</td><td>${TIPOS[c.tipo].label}</td><td>${c.voltaje} V</td><td colspan="3" class="result-empty">Sin cargas cargadas</td></tr>`;
       } else if (r.excede) {
         const motivoBadge = r.excedeTipo ? `Excede máx. de tipo (${r.maxBreakerTipo} A)` : `Excede tabla (${r.corrienteDiseno.toFixed(1)} A)`;
         const voltajeCellExcede = r.avisoVoltaje ? `${c.voltaje} V ⚠️` : `${c.voltaje} V`;
-        filas += `<tr><td>${escaparHtml(c.nombre) || 'Sin nombre'}</td><td>${TIPOS[c.tipo].label}</td><td>${voltajeCellExcede}</td><td colspan="4"><span class="badge warn">${motivoBadge}</span></td></tr>`;
+        filas += `<tr><td>${escaparHtml(c.nombre) || 'Sin nombre'}</td><td>${TIPOS[c.tipo].label}</td><td>${voltajeCellExcede}</td><td colspan="3"><span class="badge warn">${motivoBadge}</span></td></tr>`;
       } else {
         hayValidos = true;
         const voltajeCell = r.avisoVoltaje ? `${c.voltaje} V ⚠️` : `${c.voltaje} V`;
@@ -919,6 +1035,7 @@
     const caidaOk = r.caida <= MAX_CAIDA_PORC;
     const detalle = `<div class="estado-detalle">
       <div class="ed-row">Caída de tensión: <b>${r.caida.toFixed(2)}%</b> — <span class="${caidaOk ? 'ok-txt' : 'warn-txt'}">${caidaOk ? 'OK' : 'ALTA'}</span></div>
+      <div class="ed-row">Conductor de tierra (PE): <b>${r.cablePELabel}</b></div>
       <div class="ed-row">Interruptor diferencial sugerido: <b>${r.gfci ? `30 mA / Clase A / ${c.fase === 'tri' ? 'Tetrapolar (4P)' : 'Bipolar (2P)'} (GFCI/ID)` : 'No requerido para este tipo de circuito'}</b>${r.gfciForzado ? ' <span class="warn-txt">(exigido por artefacto de riesgo húmedo detectado en la carga, no por el tipo de circuito)</span>' : ''}</div>
     </div>`;
     const diagrama = `<div class="diagrama-titulo">DIAGRAMA UNIFILAR</div>${diagramaSVGInforme(c, r)}`;
@@ -954,7 +1071,8 @@
     // ---- Agregaciones para RESUMEN GENERAL y LISTA DE MATERIALES ----
     const DIFERENCIALES = [25, 40, 63, 80, 100];
     let potenciaTotal = 0, corrienteTotal = 0;
-    const cableAgg = {};   // etiqueta de cable (mm² o AWG, según norma) -> metros de conductor acumulados
+    const cableAgg = {};   // etiqueta de cable (mm² o AWG, según norma) -> metros de conductor de fase/neutro acumulados
+    const peAgg = {};      // etiqueta de cable de tierra (PE) -> metros de conductor de tierra acumulados
     const breakerAgg = {}; // "amp|curva" -> cantidad
     const diffAgg = {};    // "amp|sensibilidad" -> cantidad
 
@@ -980,7 +1098,10 @@
       // multiplicada por la cantidad de conductores que realmente necesita según fase y tipo
       // (3 en monofásico; 4 o 5 en trifásico). Antes se sumaba solo "c.distancia*1.15" sin
       // importar la fase, lo que subestimaba el material en cualquier circuito trifásico.
-      cableAgg[r.cableLabel] = (cableAgg[r.cableLabel] || 0) + c.distancia * 1.15 * numConductores(c);
+      cableAgg[r.cableLabel] = (cableAgg[r.cableLabel] || 0) + c.distancia * 1.15 * numConductoresActivos(c);
+      // Metros de conductor de tierra (PE): 1 solo conductor de tierra por circuito, con su
+      // calibre real (puede ser distinto al de fase/neutro), no el mismo calibre de cableAgg.
+      peAgg[r.cablePELabel] = (peAgg[r.cablePELabel] || 0) + c.distancia * 1.15;
       const bKey = `${r.breaker}|${r.curva}`;
       breakerAgg[bKey] = (breakerAgg[bKey] || { breaker: r.breaker, curva: r.curva, cant: 0 });
       breakerAgg[bKey].cant++;
@@ -1029,6 +1150,11 @@
       return `<tr><td>${etiqueta}</td><td>${metros.toFixed(1)} m</td></tr>`;
     }).join('') || '<tr><td colspan="2">Sin datos suficientes</td></tr>';
 
+    const filasPE = Object.keys(peAgg).sort((a, b) => indiceCalibre(a) - indiceCalibre(b)).map(etiqueta => {
+      const metros = peAgg[etiqueta];
+      return `<tr><td>${etiqueta}</td><td>${metros.toFixed(1)} m</td></tr>`;
+    }).join('') || '<tr><td colspan="2">Sin datos suficientes</td></tr>';
+
     const filasBreakers = Object.values(breakerAgg).sort((a, b) => a.breaker - b.breaker).map(b =>
       `<tr><td>${b.cant}</td><td>Breaker ${b.breaker}A - Curva ${b.curva}</td></tr>`
     ).join('') || '<tr><td colspan="2">Sin datos suficientes</td></tr>';
@@ -1040,7 +1166,11 @@
     html += `<div class="materiales-page">
       <div class="mp-titulo" style="margin-top:0;">LISTA DE CABLE POR CALIBRE</div>
       <table><thead><tr><th>Calibre</th><th>Metros totales de conductor</th></tr></thead><tbody>${filasCable}</tbody></table>
-      <div class="mp-nota">Los metros indicados son el total de conductor a comprar por calibre, sumando todos los conductores necesarios de cada circuito (con un margen del 15% sobre la distancia declarada). Se asumen 3 conductores por circuito monofásico (fase, neutro, tierra); 5 en trifásico con neutro (3 fases + neutro + tierra); y 4 en trifásico tipo "Motor" sin neutro (3 fases + tierra).</div>
+      <div class="mp-nota">Los metros indicados son el total de conductor de fase/neutro a comprar por calibre (con un margen del 15% sobre la distancia declarada), sin incluir el conductor de tierra (ver tabla siguiente). Se asumen 2 conductores por circuito monofásico (fase, neutro); 4 en trifásico con neutro (3 fases + neutro); y 3 en trifásico tipo "Motor" sin neutro (3 fases).</div>
+
+      <div class="mp-titulo">LISTA DE CABLE DE TIERRA (PE)</div>
+      <table><thead><tr><th>Calibre</th><th>Metros totales de conductor</th></tr></thead><tbody>${filasPE}</tbody></table>
+      <div class="mp-nota">Calibre del conductor de protección (PE) calculado según norma (IEC 60364-5-54 en mm², o Tabla 250.122 del NEC en AWG según el breaker) — puede ser distinto al calibre de fase/neutro cuando la sección de fase supera cierto valor.</div>
 
       <div class="mp-titulo">LISTA DE BREAKERS</div>
       <table><thead><tr><th>Cantidad</th><th>Especificación</th></tr></thead><tbody>${filasBreakers}</tbody></table>
