@@ -897,11 +897,11 @@
     circuitos.forEach(c => {
       const r = calcularCircuito(c);
       if (!r) {
-        filas += `<tr><td>${escaparHtml(c.nombre) || 'Sin nombre'}</td><td>${TIPOS[c.tipo].label}</td><td>${c.voltaje} V</td><td colspan="3" class="result-empty">Sin cargas cargadas</td></tr>`;
+        filas += `<tr><td>${escaparHtml(c.nombre) || 'Sin nombre'}</td><td>${TIPOS[c.tipo].label}</td><td>${c.voltaje} V</td><td colspan="4" class="result-empty">Sin cargas cargadas</td></tr>`;
       } else if (r.excede) {
         const motivoBadge = r.excedeTipo ? `Excede máx. de tipo (${r.maxBreakerTipo} A)` : `Excede tabla (${r.corrienteDiseno.toFixed(1)} A)`;
         const voltajeCellExcede = r.avisoVoltaje ? `${c.voltaje} V ⚠️` : `${c.voltaje} V`;
-        filas += `<tr><td>${escaparHtml(c.nombre) || 'Sin nombre'}</td><td>${TIPOS[c.tipo].label}</td><td>${voltajeCellExcede}</td><td colspan="3"><span class="badge warn">${motivoBadge}</span></td></tr>`;
+        filas += `<tr><td>${escaparHtml(c.nombre) || 'Sin nombre'}</td><td>${TIPOS[c.tipo].label}</td><td>${voltajeCellExcede}</td><td colspan="4"><span class="badge warn">${motivoBadge}</span></td></tr>`;
       } else {
         hayValidos = true;
         const voltajeCell = r.avisoVoltaje ? `${c.voltaje} V ⚠️` : `${c.voltaje} V`;
@@ -909,6 +909,7 @@
           <td>${escaparHtml(c.nombre) || 'Sin nombre'}</td><td>${r.tipoLabel}</td><td>${voltajeCell}</td>
           <td>${r.breaker} A / Curva ${r.curva}${r.gfci ? ' + GFCI' : ''}</td>
           <td>${r.cableLabel}</td>
+          <td>${r.cablePELabel}</td>
           <td>${r.caida.toFixed(2)} %</td>
         </tr>`;
       }
@@ -916,7 +917,7 @@
     resumenEl.innerHTML = `
       <div class="table-scroll">
         <table id="resumenTabla">
-          <thead><tr><th>Circuito</th><th>Tipo</th><th>Voltaje</th><th>Breaker</th><th>Conductor</th><th>Caída</th></tr></thead>
+          <thead><tr><th>Circuito</th><th>Tipo</th><th>Voltaje</th><th>Breaker</th><th>Conductor</th><th>PE</th><th>Caída</th></tr></thead>
           <tbody>${filas}</tbody>
         </table>
       </div>`;
