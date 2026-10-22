@@ -89,8 +89,11 @@
   .datos-trabajo .dt-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px 24px;font-size:12px;}
   .datos-trabajo .dt-grid span.lbl{font-weight:700;color:#334155;}
 
-  .circuito-page{break-inside:avoid;break-before:page;margin-bottom:4px;}
-  .circuito-page:first-of-type{break-before:auto;}
+  /* Cada circuito va en su propia página, EXCEPTO el primero, que sigue al encabezado y a los
+     datos del trabajo. Se usa el combinador "+" (hermano inmediato) porque :first-of-type
+     compara por TIPO de etiqueta (div), no por clase: nunca coincidía con el primer circuito. */
+  .circuito-page{break-inside:avoid;margin-bottom:4px;}
+  .circuito-page + .circuito-page{break-before:page;}
   .circuito-bar{background:var(--blue-dark);color:#fff;border-radius:8px 8px 0 0;padding:9px 16px;display:flex;justify-content:space-between;align-items:center;font-size:13px;font-weight:700;}
   .circuito-body{border:1px solid #cbd5e1;border-top:none;border-radius:0 0 8px 8px;padding:14px 18px 18px;margin-bottom:18px;}
   .info-row{display:flex;gap:26px;font-size:12px;margin-bottom:12px;flex-wrap:wrap;}
