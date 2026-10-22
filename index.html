@@ -740,26 +740,107 @@
     } catch (e) { /* almacenamiento no disponible (modo privado, cuota, etc.): se sigue sin persistir */ }
   }
 
+  // ---------- Validación de proyectos externos (import .json y localStorage) ----------
+  // Todo dato que entra desde afuera se trata como NO confiable. En vez de usar el objeto tal
+  // cual llegó, se arma uno NUEVO copiando solo los campos conocidos (lista blanca), con tipo y
+  // rango verificados. Un campo inválido se reemplaza por el valor por defecto de nuevoCircuito();
+  // si la estructura general no se puede rescatar, se rechaza el proyecto entero (devuelve null).
+  const MAX_CIRCUITOS = 200;
+  const MAX_CARGAS = 200;
+  const SEGURIDADES_VALIDAS = [1, 1.25, 1.6];
+  const CURVAS_VALIDAS = ['auto', 'B', 'C', 'D'];
+
+  function esObjetoPlano(v) { return v !== null && typeof v === 'object' && !Array.isArray(v); }
+  // Devuelve un número finito o NaN. Acepta number y strings numéricos ("220"), nada más.
+  function aNumeroFinito(v) {
+    if (typeof v === 'number') return Number.isFinite(v) ? v : NaN;
+    if (typeof v === 'string' && v.trim() !== '') { const n = Number(v); return Number.isFinite(n) ? n : NaN; }
+    return NaN;
+  }
+  function acotar(n, min, max) { return Math.min(Math.max(n, min), max); }
+  function textoAcotado(v, max, defecto) { return typeof v === 'string' ? v.slice(0, max) : defecto; }
+  // Para potencia/cantidad: la UI los guarda como string tipeado, pero un JSON puede traerlos como número.
+  function textoONumero(v, max, defecto) {
+    if (typeof v === 'number' && Number.isFinite(v)) return String(v).slice(0, max);
+    return textoAcotado(v, max, defecto);
+  }
+
+  function normalizarCarga(raw) {
+    if (!esObjetoPlano(raw)) return null;
+    return {
+      nombre: textoAcotado(raw.nombre, 100, ''),
+      potencia: textoONumero(raw.potencia, 20, ''),
+      cantidad: textoONumero(raw.cantidad, 20, 1)
+    };
+  }
+
+  function normalizarCircuito(raw, indice) {
+    if (!esObjetoPlano(raw)) return null;
+    const base = nuevoCircuito(`Circuito ${indice + 1}`); // valores por defecto, sin duplicarlos acá
+    const voltaje = aNumeroFinito(raw.voltaje);
+    const seguridad = aNumeroFinito(raw.seguridad);
+    const demanda = aNumeroFinito(raw.demanda);
+    const distancia = aNumeroFinito(raw.distancia);
+    const cosFi = aNumeroFinito(raw.cosFi);
+    const cargas = (Array.isArray(raw.cargas) ? raw.cargas.slice(0, MAX_CARGAS) : [])
+      .map(normalizarCarga).filter(Boolean);
+    return {
+      nombre: textoAcotado(raw.nombre, 100, base.nombre),
+      // typeof string: hasOwnProperty convierte cualquier cosa a texto (un array ['tomas'] pasaría).
+      tipo: (typeof raw.tipo === 'string' && Object.prototype.hasOwnProperty.call(TIPOS, raw.tipo)) ? raw.tipo : base.tipo,
+      voltaje: VOLTAJES.includes(voltaje) ? voltaje : base.voltaje,
+      fase: raw.fase === 'tri' ? 'tri' : 'mono',
+      demanda: Number.isNaN(demanda) ? base.demanda : acotar(demanda, 0.3, 1),
+      seguridad: SEGURIDADES_VALIDAS.includes(seguridad) ? seguridad : base.seguridad,
+      distancia: Number.isNaN(distancia) ? base.distancia : acotar(distancia, 0, 100000),
+      curvaManual: CURVAS_VALIDAS.includes(raw.curvaManual) ? raw.curvaManual : base.curvaManual,
+      cosFi: Number.isNaN(cosFi) ? base.cosFi : acotar(cosFi, 0.5, 1),
+      cargas: cargas.length ? cargas : base.cargas
+    };
+  }
+
+  // Devuelve un proyecto limpio y completo, o null si el dato no es un proyecto válido.
+  function normalizarProyecto(data) {
+    if (!esObjetoPlano(data) || !Array.isArray(data.circuitos)) return null;
+    if (data.circuitos.length === 0 || data.circuitos.length > MAX_CIRCUITOS) return null;
+    const validos = data.circuitos.map(normalizarCircuito).filter(Boolean);
+    if (validos.length === 0) return null;
+    const inf = esObjetoPlano(data.datosInforme) ? data.datosInforme : {};
+    const activo = aNumeroFinito(data.activoIndex);
+    return {
+      proyectoNombre: textoAcotado(data.proyectoNombre, 120, ''),
+      datosInforme: {
+        cliente: textoAcotado(inf.cliente, 120, ''),
+        electricista: textoAcotado(inf.electricista, 120, ''),
+        obra: textoAcotado(inf.obra, 120, ''),
+        observaciones: textoAcotado(inf.observaciones, 2000, '')
+      },
+      circuitos: validos,
+      activoIndex: Number.isNaN(activo) ? 0 : acotar(Math.trunc(activo), 0, validos.length - 1),
+      norma: data.norma === 'nec' ? 'nec' : 'iec'
+    };
+  }
+
+  // Vuelca un proyecto YA normalizado al estado global y a los campos de la pantalla.
+  function aplicarProyecto(p) {
+    circuitos = p.circuitos;
+    norma = p.norma;
+    activoIndex = p.activoIndex;
+    Object.assign(datosInforme, p.datosInforme);
+    document.getElementById('proyectoNombre').value = p.proyectoNombre;
+    document.getElementById('infCliente').value = datosInforme.cliente;
+    document.getElementById('infElectricista').value = datosInforme.electricista;
+    document.getElementById('infObra').value = datosInforme.obra;
+    document.getElementById('infObservaciones').value = datosInforme.observaciones;
+  }
+
   function cargarEstado() {
     try {
       const raw = localStorage.getItem(LS_KEY);
       if (!raw) return false;
-      const data = JSON.parse(raw);
-      if (!data || !Array.isArray(data.circuitos) || data.circuitos.length === 0) return false;
-      circuitos = data.circuitos;
-      circuitos.forEach(c => {
-        if (!c.fase) c.fase = 'mono'; // compatibilidad con proyectos guardados antes de este campo
-        if (!c.cosFi) c.cosFi = 0.85; // compatibilidad con proyectos guardados antes de este campo
-        if (!c.curvaManual) c.curvaManual = 'auto'; // compatibilidad con proyectos guardados antes de este campo
-      });
-      norma = (data.norma === 'nec') ? 'nec' : 'iec'; // compatibilidad con proyectos guardados antes de este campo (default IEC, que era el comportamiento previo)
-      activoIndex = Math.min(Math.max(data.activoIndex || 0, 0), circuitos.length - 1);
-      Object.assign(datosInforme, data.datosInforme || {});
-      document.getElementById('proyectoNombre').value = data.proyectoNombre || '';
-      document.getElementById('infCliente').value = datosInforme.cliente || '';
-      document.getElementById('infElectricista').value = datosInforme.electricista || '';
-      document.getElementById('infObra').value = datosInforme.obra || '';
-      document.getElementById('infObservaciones').value = datosInforme.observaciones || '';
+      const proyecto = normalizarProyecto(JSON.parse(raw));
+      if (!proyecto) return false;
+      aplicarProyecto(proyecto);
       return true;
     } catch (e) { return false; }
   }
@@ -796,29 +877,13 @@
     const reader = new FileReader();
     reader.onload = (ev) => {
       try {
-        const data = JSON.parse(ev.target.result);
-        if (!data || !Array.isArray(data.circuitos) || data.circuitos.length === 0) {
+        const proyecto = normalizarProyecto(JSON.parse(ev.target.result));
+        if (!proyecto) {
           alert('El archivo no tiene un formato de proyecto válido.');
           return;
         }
         if (!confirm('Importar este proyecto reemplaza el proyecto actual (no guardado se pierde). ¿Continuar?')) return;
-        // Se aplica la MISMA normalización de compatibilidad que ya usa cargarEstado, para que
-        // un archivo exportado por una versión anterior de la app (sin fase/cosFi/curvaManual)
-        // se siga pudiendo abrir sin romper el cálculo.
-        circuitos = data.circuitos;
-        circuitos.forEach(c => {
-          if (!c.fase) c.fase = 'mono';
-          if (!c.cosFi) c.cosFi = 0.85;
-          if (!c.curvaManual) c.curvaManual = 'auto';
-        });
-        norma = (data.norma === 'nec') ? 'nec' : 'iec';
-        activoIndex = Math.min(Math.max(data.activoIndex || 0, 0), circuitos.length - 1);
-        Object.assign(datosInforme, { cliente: '', electricista: '', obra: '', observaciones: '' }, data.datosInforme || {});
-        document.getElementById('proyectoNombre').value = data.proyectoNombre || '';
-        document.getElementById('infCliente').value = datosInforme.cliente || '';
-        document.getElementById('infElectricista').value = datosInforme.electricista || '';
-        document.getElementById('infObra').value = datosInforme.obra || '';
-        document.getElementById('infObservaciones').value = datosInforme.observaciones || '';
+        aplicarProyecto(proyecto);
         actualizarHintNorma();
         renderTabs();
         renderFormulario();
