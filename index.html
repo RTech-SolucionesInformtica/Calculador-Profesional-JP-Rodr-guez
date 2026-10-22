@@ -1211,14 +1211,21 @@
       }
       return parseFloat(etiqueta);
     }
+    // Metros a COMPRAR: se redondea siempre hacia arriba al metro entero (nunca al más cercano,
+    // que podía dejar el material corto: 3.45 m se mostraba como 3.4 m). Se redondea recién acá,
+    // sobre el TOTAL por calibre ya acumulado, no circuito por circuito, para no comprar de más.
+    // El 1e-9 absorbe el ruido de decimales de los float (23.000000000000004 no debe subir a 24).
+    function metrosParaComprar(metros) {
+      return Math.ceil(metros - 1e-9);
+    }
     const filasCable = Object.keys(cableAgg).sort((a, b) => indiceCalibre(a) - indiceCalibre(b)).map(etiqueta => {
       const metros = cableAgg[etiqueta];
-      return `<tr><td>${etiqueta}</td><td>${metros.toFixed(1)} m</td></tr>`;
+      return `<tr><td>${etiqueta}</td><td>${metrosParaComprar(metros)} m</td></tr>`;
     }).join('') || '<tr><td colspan="2">Sin datos suficientes</td></tr>';
 
     const filasPE = Object.keys(peAgg).sort((a, b) => indiceCalibre(a) - indiceCalibre(b)).map(etiqueta => {
       const metros = peAgg[etiqueta];
-      return `<tr><td>${etiqueta}</td><td>${metros.toFixed(1)} m</td></tr>`;
+      return `<tr><td>${etiqueta}</td><td>${metrosParaComprar(metros)} m</td></tr>`;
     }).join('') || '<tr><td colspan="2">Sin datos suficientes</td></tr>';
 
     const filasBreakers = Object.values(breakerAgg).sort((a, b) => a.breaker - b.breaker).map(b =>
@@ -1232,11 +1239,11 @@
     html += `<div class="materiales-page">
       <div class="mp-titulo" style="margin-top:0;">LISTA DE CABLE POR CALIBRE</div>
       <table><thead><tr><th>Calibre</th><th>Metros totales de conductor</th></tr></thead><tbody>${filasCable}</tbody></table>
-      <div class="mp-nota">Los metros indicados son el total de conductor de fase/neutro a comprar por calibre (con un margen del 15% sobre la distancia declarada), sin incluir el conductor de tierra (ver tabla siguiente). Se asumen 2 conductores por circuito monofásico (fase, neutro); 4 en trifásico con neutro (3 fases + neutro); y 3 en trifásico tipo "Motor" sin neutro (3 fases).</div>
+      <div class="mp-nota">Los metros indicados son el total de conductor de fase/neutro a comprar por calibre (con un margen del 15% sobre la distancia declarada, redondeado hacia arriba al metro entero), sin incluir el conductor de tierra (ver tabla siguiente). Se asumen 2 conductores por circuito monofásico (fase, neutro); 4 en trifásico con neutro (3 fases + neutro); y 3 en trifásico tipo "Motor" sin neutro (3 fases).</div>
 
       <div class="mp-titulo">LISTA DE CABLE DE TIERRA (PE)</div>
       <table><thead><tr><th>Calibre</th><th>Metros totales de conductor</th></tr></thead><tbody>${filasPE}</tbody></table>
-      <div class="mp-nota">Calibre del conductor de protección (PE) calculado según norma (IEC 60364-5-54 en mm², o Tabla 250.122 del NEC en AWG según el breaker) — puede ser distinto al calibre de fase/neutro cuando la sección de fase supera cierto valor.</div>
+      <div class="mp-nota">Calibre del conductor de protección (PE) calculado según norma (IEC 60364-5-54 en mm², o Tabla 250.122 del NEC en AWG según el breaker) — puede ser distinto al calibre de fase/neutro cuando la sección de fase supera cierto valor. Metros redondeados hacia arriba al metro entero.</div>
 
       <div class="mp-titulo">LISTA DE BREAKERS</div>
       <table><thead><tr><th>Cantidad</th><th>Especificación</th></tr></thead><tbody>${filasBreakers}</tbody></table>
